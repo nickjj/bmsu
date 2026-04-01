@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Usage:
+#   tests/integration
+#
+# Check the GitHub Actions output for expected output.
+#
+# To run this test suite you'll want to clone down this repo first since it
+# depends on extracting information out of git to verify certain things like
+# the --version command always stays in sync with the latest git tag.
 
 set -o errexit
 set -o pipefail
@@ -101,9 +109,11 @@ assert_no_output() {
   _assert "!" "${@}"
 }
 
-assert_output "This appears to be the first time" "${BMSU}"
+assert_output "$(git describe --tags --abbrev=0)" "${BMSU}" --version
 
 assert_output "EXAMPLES" "${BMSU}" --help
+
+assert_output "This appears to be the first time" "${BMSU}"
 
 assert_output "BMSU_PROFILE: default" "${BMSU}" config
 
