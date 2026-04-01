@@ -208,7 +208,7 @@ You're more than welcome to offer suggestions and improvements. There's a [test
 suite](./tests/integration) too.
 
 If you consider opening an issue, discussion or pull request please remember, I
-am 1 person doing this as a hobby. I maintain dozens of project and would love
+am 1 person doing this as a hobby. I maintain dozens of projects and would love
 to collaborate on anything related to this project but please don't blindly
 drop a bunch of agent generated slop onto this project.
 
