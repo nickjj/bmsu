@@ -38,6 +38,9 @@ we can do better, both to remove duplication and add safety.
 - Confirm your source paths don't contain the destination path and vice versa
 - Confirm trailing slashes are consistent (rsync treats this differently)
 
+*You get all of these wins for free, with 2 lines of configuration you'll be all
+set and ready to backup.*
+
 ## 🪄 Does It Work?!?
 
 Yes, I've successfully backed up about 1 TB of data a few thousand times since
