@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+lint() {
+  # Lint all supported file types
+  local shellcheck_cmd=(shellcheck)
+
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    local shellcheck_cmd=(docker container run --rm -i -v "${PWD}:/mnt" koalaman/shellcheck:stable)
+  fi
+
+  find . -type f \
+    ! -path "./.git/*" \
+    -exec sh -c 'head -n 1 "${1}" | grep --quiet -E "^(#!.*sh|# shellcheck shell=)"' _ {} \; \
+    -exec "${shellcheck_cmd[@]}" {} +
+}
+
+format() {
+  # Format all supported file types
+  local shfmt_cmd=(shfmt)
+
+  if ! command -v shfmt >/dev/null 2>&1; then
+    local shfmt_cmd=(docker container run --rm -i -v "${PWD}:/mnt" -u "$(id -u):$(id -g)" -w /mnt mvdan/shfmt:v3)
+  fi
+
+  local shfmt_args=("--write")
+
+  for arg in "${@}"; do
+    [ "${arg}" == "--check" ] && shfmt_args+=("--diff")
+
+    if [ "${arg}" == "-d" ] || [ "${arg}" == "--diff" ] || [ "${shfmt_args[1]}" == "--diff" ]; then
+      unset "shfmt_args[0]"
+    fi
+  done
+
+  "${shfmt_cmd[@]}" "${shfmt_args[@]}" .
+}
+
+quality() {
+  # Perform all code quality commands together
+  lint "${@}"
+  format "${@}"
+}
+
+ci:test() {
+  # Execute Continuous Integration (CI) pipeline
+  lint
+  format --check --diff
+
+  DEBUG_TESTS=1 tests/integration
+}
+
+help() {
+  printf "%s <task> [args]\n\nTasks:\n" "${0}"
+
+  compgen -A function | grep -v "^_" | cat -n
+
+  printf "\nExtended help:\n  Each task has comments for general usage\n"
+}
+
+TIMEFORMAT=$'\nTask completed in %3lR'
+time "${@:-help}"

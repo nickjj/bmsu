@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+DEBUG_TESTS="${DEBUG_TESTS:-}"
+TMP_DIR="/dev/shm"
+BMSU="src/bmsu"
+
+readonly C_RED=$'\e[1;31;1m'
+readonly C_GREEN=$'\e[1;32;1m'
+readonly C_MAGENTA=$'\e[1;35;1m'
+readonly C_CYAN=$'\e[1;36;1m'
+readonly C_RESET=$'\e[0m'
+
+# -----------------------------------------------------------------------------
+# Allow safe local testing
+# -----------------------------------------------------------------------------
+readonly default_profile="${XDG_CONFIG_HOME}/bmsu/default"
+
+readonly test_profile_name="bmsu-test-profile"
+readonly test_profile="${default_profile/default/"${test_profile_name}"}"
+
+cleanup() {
+  if [ -f "${default_profile}.bak" ]; then
+    mv "${default_profile}.bak" "${default_profile}"
+  fi
+
+  rm -rf "${test_profile}" tmp
+}
+
+trap cleanup EXIT
+
+if [ -f "${default_profile}" ]; then
+  mv "${default_profile}" "${default_profile}.bak"
+fi
+
+_assert() {
+  local match_type="${1}"
+  local expected="${2}"
+
+  shift 2
+
+  printf "\n\n"
+
+  # Capture all output, remove color and never fail at this point.
+  local output
+  output=$("${@}" 2>&1 | sed "s/\x1b\[[0-9;]*m//g") || true
+
+  local full_output=""
+  full_output=$(
+    cat <<EOF
+${C_CYAN}===============================================================================
+FULL OUTPUT
+===============================================================================${C_RESET}
+${output}
+${C_CYAN}===============================================================================${C_RESET}
+EOF
+  )
+
+  local pass=false
+
+  # Linux and macOS compatible multi-line regex search (replaces grep -Pz).
+  #
+  # -0777 "slurps" the entire output into one string for multi-line matching.
+  #
+  # -ne runs the following Perl code against the output
+  #
+  # exit(...):
+  #   m{}   : use braces as delimiters so file paths (/) don't break the regex
+  #   !     : flip Perl's "true" (1) to a Shell "success" (0)
+  #   s     : modifier that allows the dot (.) to match newline characters
+  if perl -0777 -ne "exit(!m{${expected}}s)" <<<"${output}"; then
+    # Perl found a match and assert_output was called (! wasn't passed in).
+    # We're looking for a match to pass.
+    [ -z "${match_type}" ] && pass=1
+  else
+    # Perl didn't find a match and assert_no_output was called (! was passed in).
+    # We're not looking (avoiding) a match to pass.
+    [ "${match_type}" == "!" ] && pass=1
+  fi
+
+  if [ "${pass}" == "1" ]; then
+    echo "${C_GREEN}PASS${C_RESET} :: ${C_MAGENTA}${*}${C_RESET} :: '${expected}'"
+
+    if [ "${DEBUG_TESTS}" = "1" ]; then echo "${full_output}"; fi
+  else
+    echo "${C_RED}FAIL (LINE $(caller 1 | cut -d " " -f 1))${C_RESET} :: ${C_MAGENTA}${*}${C_RESET} :: '${expected}'"
+    echo "${full_output}"
+
+    exit 1
+  fi
+}
+
+assert_output() {
+  _assert "" "${@}"
+}
+
+assert_no_output() {
+  _assert "!" "${@}"
+}
+
+assert_output "This appears to be the first time" "${BMSU}"
+
+assert_output "EXAMPLES" "${BMSU}" --help
+
+assert_output "BMSU_PROFILE: default" "${BMSU}" config
+
+assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
+
+# Never operate on the default config and use a name that won't normally exist.
+cp "${default_profile}" "${test_profile}"
+export BMSU_PROFILE="${test_profile_name}"
+
+assert_output "BMSU_PROFILE: ${test_profile_name}" "${BMSU}" config
+
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello")|' "${test_profile}"
+assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
+
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("-")|' "${test_profile}"
+assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--")|' "${test_profile}"
+assert_output "RSYNC_OPTIONS: '--' must start with" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello world")|' "${test_profile}"
+assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
+
+perl -pi -e '
+  s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=("cool")|;
+  s|^export BMSU_EXCLUDE_PATTERNS_SKIP=.*|export BMSU_EXCLUDE_PATTERNS_SKIP=("*~")|
+' "${test_profile}"
+assert_output "BMSU_EXCLUDE_PATTERNS_EXTRAS:\n  \[\d\] cool" "${BMSU}" config
+assert_no_output "BMSU_EXCLUDE_PATTERNS:\n  \[0] \*~" "${BMSU}" config
+
+perl -pi -e '
+  s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=()|;
+  s|^export BMSU_EXCLUDE_PATTERNS=.*|export BMSU_EXCLUDE_PATTERNS=|
+' "${test_profile}"
+assert_output "BMSU_EXCLUDE_PATTERNS:\s*\n\n" "${BMSU}" config
+
+perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/and/with/extra/paths/\"|" "${test_profile}"
+assert_output "BMSU_DESTINATION: '${TMP_DIR}/and/with/extra/paths/' cannot end with a forward slash" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":~/"|' "${test_profile}"
+assert_output "BMSU_DESTINATION: ':~/' cannot end with a forward slash" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":badpath"|' "${test_profile}"
+assert_output "BMSU_DESTINATION: ':badpath' is an invalid format" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":~badpath"|' "${test_profile}"
+assert_output "BMSU_DESTINATION: ':~badpath' is an invalid format" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" "${test_profile}"
+assert_output "BMSU_SOURCES: cannot be empty" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_SOURCES=.*|export BMSU_SOURCES=("tmp")|' "${test_profile}"
+assert_output "BMSU_SOURCES: 'tmp' is missing or not readable" "${BMSU}"
+
+mkdir -p tmp
+perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION="tmp"|' "${test_profile}"
+assert_output "BMSU_DESTINATION: 'tmp' has no valid external mount" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" "${test_profile}"
+assert_output "BMSU_SOURCES: 'tmp' must be an absolute" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"${TMP_DIR}\")|" "${test_profile}"
+assert_output "BMSU_SOURCES: '${TMP_DIR}' is identical to BMSU_DESTINATION='${TMP_DIR}'" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=\"${TMP_DIR}/\"|" "${test_profile}"
+assert_output "BMSU_SOURCES: '${TMP_DIR}/' cannot end with a forward slash" "${BMSU}"
