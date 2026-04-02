@@ -203,6 +203,9 @@ bmsu --delete
 
 # Pass as many flags as you want in any order rsync accepts them.
 bmsu --dry-run --delete
+
+# Passing rsync flags here helps see what will be used when you backup.
+bmsu config --dry-run
 ```
 
 ## 🤝 Feedback and Code Contributions

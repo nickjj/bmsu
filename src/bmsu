@@ -311,8 +311,10 @@ merge_rsync_opts() {
 
   local rsync_opts_from_args=("${@}")
 
-  # Known bmsu commands to skip processing.
-  [ "${rsync_opts_from_args[0]:-}" == "config" ] && return
+  # Known bmsu commands to skip forwarding to rsync.
+  if [ "${rsync_opts_from_args[0]:-}" == "config" ]; then
+    rsync_opts_from_args=("${rsync_opts_from_args[@]:1}")
+  fi
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")
 
