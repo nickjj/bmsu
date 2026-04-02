@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet!
+### Changed
+
+- Enforce `--relative` (or `-R`) for more predictable backups and restores
 
 ## [0.1.0] - 2026-04-01
 

@@ -125,7 +125,7 @@ export BMSU_PROFILE="${test_profile_name}"
 
 assert_output "BMSU_PROFILE: ${test_profile_name}" "${BMSU}" config
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello")|' "${test_profile}"
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello" "--relative")|' "${test_profile}"
 assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
 
 perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("-")|' "${test_profile}"
@@ -134,7 +134,10 @@ assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
 perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--")|' "${test_profile}"
 assert_output "RSYNC_OPTIONS: '--' must start with" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello world")|' "${test_profile}"
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--archive")|' "${test_profile}"
+assert_output "RSYNC_OPTIONS: '--relative' is missing" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=()|' "${test_profile}"
 assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
 
 perl -pi -e '

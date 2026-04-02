@@ -331,6 +331,28 @@ EOF
       exit 1
     fi
   done
+
+  # Enforce --relative is set, this avoids false positive matches with the
+  # padded spaces on both sides of the comparison, -R is included in case
+  # someone sets it as a custom flag, it technically works too.
+  if [[ ! " ${default_rsync_opts[*]} " == *" --relative "* && ! " ${BMSU_DEFAULT_RSYNC_OPTS[*]} " =~ " -R " ]]; then
+    cat <<EOF >&2
+${C_RED}RSYNC_OPTIONS${C_RESET}: '--relative' is missing and must be set, aborting!
+
+This flag makes backups and restores so much more predictable. Since we're
+using absolute paths this combination allows a restore to be the inverse of a
+backup without any guesswork.
+
+Consider using rsync's /./ path syntax if you're doing something where absolute
+paths relative to the destination doesn't make sense, like restoring a macOS
+user path (/Users/${USER}/myfiles) to Linux (/home/${USER}/myfiles).
+
+In this case you can use "${HOME}/./myfiles" as one of your source paths instead
+of using "${HOME}/myfiles". Our best friend rsync will make it "just work".
+EOF
+
+    exit 1
+  fi
 }
 
 merge_exclude_patterns() {
