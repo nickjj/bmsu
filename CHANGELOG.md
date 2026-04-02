@@ -11,6 +11,8 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.2.0] - 2026-04-02
 
+🧬 *Introduces a new `BMSU_RESTORE_PATH` config option (check the readme for details).*
+
 ### Added
 
 - `restore` command to support easy restoring

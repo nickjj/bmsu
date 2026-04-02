@@ -169,9 +169,7 @@ EOF
   cat <<EOF
 This appears to be the first time you're running bmsu.
 
-A default profile for you was just created in:
-
-${CONFIG_DIR}
+A default profile for you was just created in: ${CONFIG_DIR}
 
 You'll want to configure both BMSU_DESTINATION and BMSU_SOURCES in that file,
 there's plenty of comments to get you going.
@@ -196,7 +194,7 @@ EOF
     "BMSU_DEFAULT_RSYNC_OPTS")
       color="${C_CYAN}"
       ;;
-    "BMSU_DESTINATION")
+    "BMSU_DESTINATION" | "BMSU_RESTORE_PATH")
       color="${C_MAGENTA}"
       ;;
     "BMSU_EXCLUDE_PATTERNS" | "BMSU_EXCLUDE_PATTERNS_EXTRAS" | "BMSU_EXCLUDE_PATTERNS_SKIP")
@@ -247,9 +245,7 @@ else
     cat <<EOF >&2
 ${C_RED}BMSU_PROFILE${C_RESET}: '${BMSU_PROFILE}' does not exist, aborting!
 
-If you want this profile to exist, create it at:
-
-${CONFIG_DIR}/${BMSU_PROFILE}
+If you want this profile to exist, create it at: ${CONFIG_DIR}/${BMSU_PROFILE}
 
 Available profiles:
 
@@ -591,7 +587,7 @@ validate_sources() {
     cat <<EOF >&2
 ${C_RED}BMSU_SOURCES${C_RESET}: cannot be empty, set it in your config, aborting!
 
-Your profile's config can be found at: ${BMSU_PROFILE}
+Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
 
 There's a comment in the config file that has an example.
 EOF
