@@ -40,7 +40,8 @@ as defining your source and destination paths, exclude patterns and more.
 A default profile gets created for you and all custom profiles you create
 inherit from this default. You can overwrite any values as desired.
 
-Unless you're backing up to multiple destinations the default is all you need.
+Unless you're backing up to multiple destinations or syncing files between
+multiple devices (desktop, laptop, phone, etc.) the default is all you need.
 
 All profiles are saved in: ${CONFIG_DIR}
 
@@ -143,14 +144,31 @@ export BMSU_EXCLUDE_PATTERNS_EXTRAS=()
 
 # Remove items from the default list.
 export BMSU_EXCLUDE_PATTERNS_SKIP=()
+
+# This remains unused unless you run \`(bmsu restore)\`.
+#
+# When you're ready to restore, you'll want to set "/", since --relative is
+# always used rsync knows to create your source paths where they should be.
+# For testing you can use "/tmp" to see which files really get restored.
+#
+# Tip: you can use the rsync --update flag to avoid overwriting newer files
+# that exist on your source. Be careful with --delete too!
+#
+# Debug mode is always enabled for it, there's also --dry-run and temporarily
+# using "/tmp" to verify your paths before you perform your restore on "/".
+#
+# P.S., the special /./ path you'll see in the final rsync command configures
+# rsync to only restore the path to the right of it, this avoids copying your
+# BMSU_DESTINATION as part of the restore path.
+export BMSU_RESTORE_PATH=
 EOF
 
   cat <<EOF
 This appears to be the first time you're running bmsu.
 
-A default profile for you was just created at:
+A default profile for you was just created in:
 
-${DEFAULT_PROFILE}
+${CONFIG_DIR}
 
 You'll want to configure both BMSU_DESTINATION and BMSU_SOURCES in that file,
 there's plenty of comments to get you going.
@@ -301,6 +319,8 @@ else
   BMSU_EXCLUDE_PATTERNS_SKIP=()
 fi
 
+BMSU_RESTORE_PATH="${BMSU_RESTORE_PATH:-}"
+
 # -----------------------------------------------------------------------------
 # Merge config values
 # -----------------------------------------------------------------------------
@@ -312,7 +332,7 @@ merge_rsync_opts() {
   local rsync_opts_from_args=("${@}")
 
   # Known bmsu commands to skip forwarding to rsync.
-  if [ "${rsync_opts_from_args[0]:-}" == "config" ]; then
+  if [[ "${rsync_opts_from_args[0]:-}" =~ ^(config|restore)$ ]]; then
     rsync_opts_from_args=("${rsync_opts_from_args[@]:1}")
   fi
 
@@ -337,7 +357,7 @@ EOF
   # Enforce --relative is set, this avoids false positive matches with the
   # padded spaces on both sides of the comparison, -R is included in case
   # someone sets it as a custom flag, it technically works too.
-  if [[ ! " ${default_rsync_opts[*]} " == *" --relative "* && ! " ${BMSU_DEFAULT_RSYNC_OPTS[*]} " =~ " -R " ]]; then
+  if [[ ! " ${default_rsync_opts[*]} " == *" --relative "* && ! " ${default_rsync_opts[*]} " =~ " -R " ]]; then
     cat <<EOF >&2
 ${C_RED}RSYNC_OPTIONS${C_RESET}: '--relative' is missing and must be set, aborting!
 
@@ -351,6 +371,27 @@ user path (/Users/${USER}/myfiles) to Linux (/home/${USER}/myfiles).
 
 In this case you can use "${HOME}/./myfiles" as one of your source paths instead
 of using "${HOME}/myfiles". Our best friend rsync will make it "just work".
+EOF
+
+    exit 1
+  fi
+
+  if [[ " ${default_rsync_opts[*]} " == *" --no-relative "* || " ${default_rsync_opts[*]} " == *" --no-R "* ]]; then
+    cat <<EOF >&2
+${C_RED}RSYNC_OPTIONS${C_RESET}: '--no-relative' cannot be set, aborting!
+
+This script doesn't allow this flag in its current form. You can remove this
+validation check in the source code to allow it if it unblocks you.
+
+Be really careful if you're performing a restore with --no-relative since it
+will dump your files straight into "/" if that's your BMSU_RESTORE_PATH.
+
+Doing this as a non-root user will protect you since you'll get permission
+denied but still, it's a sketchy situation to accidentally walk into.
+
+If you feel there's a sound use case for it, please open an issue at:
+
+https://github.com/nickjj/bmsu
 EOF
 
     exit 1
@@ -411,7 +452,7 @@ validate_destination() {
     cat <<EOF >&2
 ${C_RED}BMSU_DESTINATION${C_RESET}: cannot be empty, set it in your config, aborting!
 
-Your profile's config can be found at: ${BMSU_PROFILE}
+Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
 
 There's a comment in the config file that has an example.
 EOF
@@ -608,6 +649,81 @@ EOF
 }
 
 # -----------------------------------------------------------------------------
+# Validate and prepare restore path
+# -----------------------------------------------------------------------------
+validate_and_prepare_restore_path() {
+  local args=("${@}")
+
+  # Skip doing anything when we're not restoring.
+  [ "${args[0]:-}" != "restore" ] && return
+
+  if [ -z "${BMSU_RESTORE_PATH}" ]; then
+    cat <<EOF >&2
+${C_RED}BMSU_RESTORE_PATH${C_RESET}: cannot be empty, set it in your config, aborting!
+
+Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
+
+There's a comment in the config file that has an example.
+EOF
+
+    exit 1
+  fi
+
+  # We'll allow "/" by itself since that's an expected path.
+  if [[ "${BMSU_RESTORE_PATH}" != "/" && "${BMSU_RESTORE_PATH}" == */ ]]; then
+    cat <<EOF >&2
+${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' cannot end with a forward slash, aborting!
+
+This is to help protect us, rsync copies the entire directory without a slash
+but if you have a slash only the contents of the directory are copied.
+EOF
+
+    exit 1
+  fi
+
+  # Both this and the next check limit this path to being local but I think
+  # that's probably a good idea to avoid accidentally restoring to a remote
+  # host. I added this comment to note that this use case was considered.
+  if [[ "${BMSU_RESTORE_PATH}" != /* ]]; then
+    cat <<EOF >&2
+${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' must be an absolute path, aborting!
+
+It must start with '/' or be a variable that resolves to one.
+EOF
+
+    exit 1
+  fi
+
+  if [ ! -d "${BMSU_RESTORE_PATH}" ]; then
+    cat <<EOF >&2
+${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' does not exist, aborting!
+
+Check your path for typos.
+EOF
+
+    exit 1
+  fi
+
+  # We always want debug mode enabled for restoring.
+  DEBUG=1
+
+  # Prepend the configured destination path to each source path and add /./ in
+  # in between them so rsync doesn't restore the destination path itself.
+  #
+  # Example:
+  #   BMSU_DESTINATION="/data/backup/desktop"
+  #   BMSU_SOURCES=("${HOME}/src")
+  #   BMSU_RESTORE_PATH="/tmp"
+  #
+  # Produces a new source path of: /data/backup/desktop/./home/nick/src
+  # In which case, rsync will restore to /tmp//home/nick/src.
+  #
+  # If ./ wasn't used, rsync would restore to /tmp/data/backup/desktop/home/nick/src.
+  BMSU_RSYNC_SOURCES_FLAGS=("${BMSU_SOURCES[@]/#/${BMSU_DESTINATION}/.}")
+  BMSU_DESTINATION="${BMSU_RESTORE_PATH}"
+}
+
+# -----------------------------------------------------------------------------
 # Prepare rsync command
 # -----------------------------------------------------------------------------
 prepare_rsync_command() {
@@ -670,6 +786,7 @@ EOF
 validate_destination
 validate_exclude_patterns
 validate_sources
+validate_and_prepare_restore_path "${@}"
 prepare_rsync_command
 [ "${DEBUG}" == "1" ] && print_debug_info
 

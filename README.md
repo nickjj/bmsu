@@ -4,7 +4,7 @@ Gain full control over your backups instead of using cloud backup services.
 
 This is directly using rsync under the hood which means you can perform backups
 to an external drive, network mounted drive or over SSH to a remote server you
-control.
+control. Restoring is painless too!
 
 *It's a single file Bash script that works on Linux (including WSL 2) and
 macOS.*
@@ -37,9 +37,10 @@ we can do better, both to remove duplication and add safety.
 - Confirm each source path exists before calling `rsync`
 - Confirm your source paths don't contain the destination path and vice versa
 - Confirm trailing slashes are consistent (rsync treats this differently)
+- Confirm your restore path is safe with the combo of rsync flags being used
 
-*You get all of these wins for free, with 2 lines of configuration you'll be all
-set and ready to backup.*
+*You get all of these wins for free, with 3 lines of configuration you'll be
+all set to backup AND restore.*
 
 ## 🪄 Does It Work?!?
 
@@ -92,7 +93,8 @@ such as defining your source and destination paths, exclude patterns and more.
 A default profile gets created for you and all custom profiles you create
 inherit from this default. You can overwrite any values as desired.
 
-Unless you're backing up to multiple destinations the default is all you need.
+Unless you're backing up to multiple destinations or syncing files between
+multiple devices (desktop, laptop, phone, etc.) the default is all you need.
 
 All profiles are saved in: `${XDG_CONFIG_HOME}/.config/bmsu`
 
@@ -162,6 +164,23 @@ export BMSU_EXCLUDE_PATTERNS_EXTRAS=()
 
 # Remove items from the default list.
 export BMSU_EXCLUDE_PATTERNS_SKIP=()
+
+# This remains unused unless you run `bmsu restore`.
+#
+# When you're ready to restore, you'll want to set "/", since --relative is
+# always used rsync knows to create your source paths where they should be.
+# For testing you can use "/tmp" to see which files really get restored.
+#
+# Tip: you can use the rsync --update flag to avoid overwriting newer files
+# that exist on your source. Be careful with --delete too!
+#
+# Debug mode is always enabled for it, there's also --dry-run and temporarily
+# using "/tmp" to verify your paths before you perform your restore on "/".
+#
+# P.S., the special /./ path you'll see in the final rsync command configures
+# rsync to only restore the path to the right of it, this avoids copying your
+# BMSU_DESTINATION as part of the restore path.
+export BMSU_RESTORE_PATH=
 ```
 
 ## 🚀 Usage
@@ -189,6 +208,11 @@ bmsu config
 #
 # All options inherit from the default profile, you can overwrite them as desired.
 BMSU_PROFILE=laptop bmsu
+
+# Restore source files from your backup destination to the path that
+# BMSU_RESTORE_PATH is set to. Given how dangerous this command can be if it's
+# misconfigured, debug mode is always enabled for it.
+bmsu restore
 ```
 
 Any flags you pass in will directly get forwarded to rsync, for example:
@@ -206,6 +230,10 @@ bmsu --dry-run --delete
 
 # Passing rsync flags here helps see what will be used when you backup.
 bmsu config --dry-run
+
+# A quick tip for restoring from a backup, but avoid clobbering newer files
+# that exist on your source system.
+bmsu restore --update
 ```
 
 ## 🤝 Feedback and Code Contributions

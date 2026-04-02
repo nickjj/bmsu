@@ -7,9 +7,14 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `restore` command to support easy restoring
+
 ### Changed
 
 - Enforce `--relative` (or `-R`) for more predictable backups and restores
+- `config` now supports passing in rsync flags to preview what will get set
 
 ## [0.1.0] - 2026-04-01
 
