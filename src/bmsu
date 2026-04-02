@@ -68,6 +68,9 @@ ${0} config
 
 # Use a different profile other than the default.
 BMSU_PROFILE=laptop ${0}
+
+# Perform a restore but avoid clobbering newer files that exist on your source system.
+bmsu restore --update
 EOF
 
   exit
