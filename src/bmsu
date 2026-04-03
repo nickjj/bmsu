@@ -428,7 +428,7 @@ Tips:
 EOF
 }
 
-_invalid_config_empty() {
+_validate_config_presence() {
   local variable_name="${1}"
 
   if [[ -z ${!variable_name+x} ]] || [[ -z ${!variable_name} ]]; then
@@ -442,7 +442,7 @@ EOF
   fi
 }
 
-_invalid_config_array() {
+_validate_config_array() {
   local variable_name="${1}"
 
   if [[ ! ${!variable_name@a} == *a* ]]; then
@@ -456,7 +456,7 @@ EOF
   fi
 }
 
-_invalid_config_string() {
+_validate_config_string() {
   local variable_name="${1}"
 
   if [[ ${!variable_name@a} == *a* ]]; then
@@ -468,6 +468,66 @@ EOF
     _invalid_config_help "${variable_name}"
     exit 1
   fi
+}
+
+_validate_absolute_path() {
+  local variable_name="${1}"
+
+  if [ "${2:-}" ]; then
+    local variable_reference="${2}"
+  else
+    local -n variable_reference="${variable_name}"
+  fi
+
+  if [[ "${variable_reference}" != /* ]]; then
+    cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: '${variable_reference}' must be an absolute path, aborting!
+
+It must start with '/' or be a variable that resolves to one.
+
+EOF
+
+    _invalid_config_help "${variable_name}"
+    exit 1
+  fi
+}
+
+_validate_no_ending_forward_slash() {
+  local variable_name="${1}"
+
+  if [ "${2:-}" ]; then
+    local variable_reference="${2}"
+  else
+    local -n variable_reference="${variable_name}"
+  fi
+
+  if [[ "${variable_reference}" == */ ]]; then
+    cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: '${variable_reference}' cannot end with a forward slash, aborting!
+
+This is to help protect us, rsync copies the entire directory without a slash
+but if you have a slash only the contents of the directory are copied.
+
+EOF
+
+    _invalid_config_help "${variable_name}"
+    exit 1
+  fi
+}
+
+_validate_path_exists() {
+  local variable_name="${1}"
+  local -n variable_reference="${variable_name}"
+
+  cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: '${variable_reference}' does not exist, aborting!
+
+Check your path for typos.
+
+EOF
+
+  _invalid_config_help "${variable_name}"
+  exit 1
 }
 
 # -----------------------------------------------------------------------------
@@ -592,30 +652,20 @@ BMSU_SOURCE_ABSOLUTE=
 BMSU_RSYNC_EXCLUDE_FLAGS=()
 BMSU_RSYNC_SOURCES_FLAGS=()
 
-BMSU_REMOTE=
+BMSU_DESTINATION_REMOTE=
 BMSU_REMOTE_DESTINATION=
-[[ "${BMSU_DESTINATION}" == *:* ]] && BMSU_REMOTE=1
+[[ "${BMSU_DESTINATION}" == *:* ]] && BMSU_DESTINATION_REMOTE=1
 
 # -----------------------------------------------------------------------------
 # Validate destination
 # -----------------------------------------------------------------------------
 validate_destination() {
-  _invalid_config_empty "BMSU_DESTINATION"
-  _invalid_config_string "BMSU_DESTINATION"
-
-  if [[ "${BMSU_DESTINATION}" == */ ]]; then
-    cat <<EOF >&2
-${C_RED}BMSU_DESTINATION${C_RESET}: '${BMSU_DESTINATION}' cannot end with a forward slash, aborting!
-
-This is to help protect us, rsync copies the entire directory without a slash
-but if you have a slash only the contents of the directory are copied.
-EOF
-
-    exit 1
-  fi
+  _validate_config_presence "BMSU_DESTINATION"
+  _validate_config_string "BMSU_DESTINATION"
+  _validate_no_ending_forward_slash "BMSU_DESTINATION"
 
   # It's a remote path, not a mount.
-  if [ "${BMSU_REMOTE}" == "1" ]; then
+  if [ "${BMSU_DESTINATION_REMOTE}" == "1" ]; then
     BMSU_REMOTE_DESTINATION="${BMSU_DESTINATION#*:}"
 
     # rsync expands the ~/ user correctly with and without the user defined.
@@ -652,18 +702,12 @@ EOF
     # It's a local or network mount, expand the user's home directory.
     BMSU_DESTINATION="${BMSU_DESTINATION/#~/${HOME}}"
 
+    _validate_absolute_path "BMSU_DESTINATION"
+
     # Linux and macOS compatible way to get the mount path from a path.
     BMSU_MOUNT=$(df -P "${BMSU_DESTINATION}" 2>/dev/null | awk 'END{print $NF}' || true)
 
-    if [ -z "${BMSU_MOUNT}" ]; then
-      cat <<EOF >&2
-${C_RED}BMSU_DESTINATION${C_RESET}: '${BMSU_DESTINATION}' does not exist, aborting!
-
-Check your path for typos.
-EOF
-
-      exit 1
-    fi
+    [ -z "${BMSU_MOUNT}" ] && _validate_path_exists "BMSU_DESTINATION"
 
     if [ "${BMSU_MOUNT}" == "/" ]; then
       cat <<EOF >&2
@@ -700,16 +744,6 @@ EOF
       exit 1
     fi
 
-    if [[ "${BMSU_DESTINATION}" != /* ]]; then
-      cat <<EOF >&2
-${C_RED}BMSU_DESTINATION${C_RESET}: '${BMSU_DESTINATION}' must be an absolute path, aborting!
-
-It must start with '/' or be a variable that resolves to one.
-EOF
-
-      exit 1
-    fi
-
     mkdir -p "${BMSU_DESTINATION}"
   fi
 }
@@ -727,39 +761,29 @@ validate_exclude_patterns() {
 # Validate and build up sources
 # -----------------------------------------------------------------------------
 validate_sources() {
-  _invalid_config_empty "BMSU_SOURCES"
-  _invalid_config_array "BMSU_SOURCES"
+  _validate_config_presence "BMSU_SOURCES"
+  _validate_config_array "BMSU_SOURCES"
 
-  [ "${BMSU_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE=$(realpath "${BMSU_DESTINATION}")
+  [ "${BMSU_DESTINATION_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE=$(realpath "${BMSU_DESTINATION}")
 
   for item in "${BMSU_SOURCES[@]}"; do
     # Support expanding ~ to home.
     item="${item/#~/${HOME}}"
 
-    # Check if it's a directory / file and readable.
-    if [[ ! ((-d "${item}" || -f "${item}") && -r "${item}") ]]; then
-      echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is missing or not readable by ${USER}, aborting!" >&2
-      exit 1
-    fi
+    # This currently limits sources to being local or network mounts, not remote
+    # hosts. If remote sources is requested enough it can be added.
+    _validate_no_ending_forward_slash "BMSU_SOURCES" "${item}"
+    _validate_absolute_path "BMSU_SOURCES" "${item}"
 
-    if [[ "${item}" == */ ]]; then
-      cat <<EOF >&2
-${C_RED}BMSU_SOURCES${C_RESET}: '${item}' cannot end with a forward slash, aborting!
+    [[ ! -d "${item}" && ! -f "${item}" ]] && _validate_path_exists "BMSU_SOURCES"
 
-This is to help protect us, rsync copies the entire directory without a slash
-but if you have a slash only the contents of the directory are copied.
-EOF
-
-      exit 1
-    fi
-
-    if [[ "${item}" != /* && "${item}" != *:* ]]; then
-      echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' must be an absolute local or remote SSH path, aborting!" >&2
+    if [ ! -r "${item}" ]; then
+      echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is not readable by '${USER}', aborting!" >&2
       exit 1
     fi
 
     # We can only run these tests for local or network mounts, not a remote path.
-    if [ "${BMSU_REMOTE}" != "1" ]; then
+    if [ "${BMSU_DESTINATION_REMOTE}" != "1" ]; then
       BMSU_SOURCE_ABSOLUTE=$(realpath "${item}")
 
       if [ "${BMSU_SOURCE_ABSOLUTE}" == "${BMSU_DESTINATION_ABSOLUTE}" ]; then
@@ -791,43 +815,19 @@ validate_and_prepare_restore_path() {
   # Skip doing anything when we're not restoring.
   [ "${args[0]:-}" != "restore" ] && return
 
-  _invalid_config_empty "BMSU_RESTORE_PATH"
-  _invalid_config_string "BMSU_RESTORE_PATH"
-
-  # We'll allow "/" by itself since that's an expected path.
-  if [[ "${BMSU_RESTORE_PATH}" != "/" && "${BMSU_RESTORE_PATH}" == */ ]]; then
-    cat <<EOF >&2
-${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' cannot end with a forward slash, aborting!
-
-This is to help protect us, rsync copies the entire directory without a slash
-but if you have a slash only the contents of the directory are copied.
-EOF
-
-    exit 1
-  fi
+  _validate_config_presence "BMSU_RESTORE_PATH"
+  _validate_config_string "BMSU_RESTORE_PATH"
 
   # Both this and the next check limit this path to being local but I think
   # that's probably a good idea to avoid accidentally restoring to a remote
   # host. I added this comment to note that this use case was considered.
-  if [[ "${BMSU_RESTORE_PATH}" != /* ]]; then
-    cat <<EOF >&2
-${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' must be an absolute path, aborting!
 
-It must start with '/' or be a variable that resolves to one.
-EOF
+  # We'll allow "/" by itself since that's an expected path.
+  [ "${BMSU_RESTORE_PATH}" != "/" ] && _validate_no_ending_forward_slash "BMSU_RESTORE_PATH"
 
-    exit 1
-  fi
+  _validate_absolute_path "BMSU_RESTORE_PATH"
 
-  if [ ! -d "${BMSU_RESTORE_PATH}" ]; then
-    cat <<EOF >&2
-${C_RED}BMSU_RESTORE_PATH${C_RESET}: '${BMSU_RESTORE_PATH}' does not exist, aborting!
-
-Check your path for typos.
-EOF
-
-    exit 1
-  fi
+  [ ! -d "${BMSU_RESTORE_PATH}" ] && _validate_path_exists "BMSU_RESTORE_PATH"
 
   # We always want debug mode enabled for restoring.
   DEBUG=1

@@ -13,7 +13,12 @@ set -o pipefail
 set -o nounset
 
 DEBUG_TESTS="${DEBUG_TESTS:-}"
+
 TMP_DIR="/dev/shm"
+
+# Something that is pretty much impossible to really exist.
+INVALID_PATH="intergalactic-nocturnal-horse-radish"
+
 BMSU="src/bmsu"
 
 readonly C_RED=$'\e[1;31;1m'
@@ -177,17 +182,27 @@ perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\
 assert_output "BMSU_SOURCES: cannot be empty" "${BMSU}"
 
 perl -pi -e 's|^export BMSU_SOURCES=.*|export BMSU_SOURCES=("tmp")|' "${test_profile}"
-assert_output "BMSU_SOURCES: 'tmp' is missing or not readable" "${BMSU}"
+assert_output "BMSU_SOURCES: 'tmp' must be an absolute path" "${BMSU}"
 
 mkdir -p tmp
+
 perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION="tmp"|' "${test_profile}"
-assert_output "BMSU_DESTINATION: 'tmp' has no valid external mount" "${BMSU}"
+assert_output "BMSU_DESTINATION: 'tmp' must be an absolute path" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/${INVALID_PATH}\"|" "${test_profile}"
+assert_output "BMSU_DESTINATION: '${TMP_DIR}/${INVALID_PATH}' does not exist" "${BMSU}"
+
+perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION="/etc"|' "${test_profile}"
+assert_output "BMSU_DESTINATION: '/etc' has no valid external mount" "${BMSU}"
 
 perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" "${test_profile}"
-assert_output "BMSU_SOURCES: 'tmp' must be an absolute" "${BMSU}"
+assert_output "BMSU_SOURCES: 'tmp' must be an absolute path" "${BMSU}"
 
 perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"${TMP_DIR}\")|" "${test_profile}"
 assert_output "BMSU_SOURCES: '${TMP_DIR}' is identical to BMSU_DESTINATION='${TMP_DIR}'" "${BMSU}"
+
+perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/${INVALID_PATH}\")|" "${test_profile}"
+assert_output "BMSU_SOURCES: '/${INVALID_PATH}' does not exist" "${BMSU}"
 
 perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=\"${TMP_DIR}/\"|" "${test_profile}"
 assert_output "BMSU_SOURCES: '${TMP_DIR}/' cannot end with a forward slash" "${BMSU}"
@@ -205,5 +220,5 @@ assert_output "BMSU_RESTORE_PATH: '${TMP_DIR}/' cannot end with a forward slash"
 perl -pi -e 's|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH="tmp"|' "${test_profile}"
 assert_output "BMSU_RESTORE_PATH: 'tmp' must be an absolute" "${BMSU}" restore
 
-perl -pi -e "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/does-not-exist-path\"|" "${test_profile}"
-assert_output "BMSU_RESTORE_PATH: '/does-not-exist-path' does not exist" "${BMSU}" restore
+perl -pi -e "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/${INVALID_PATH}\"|" "${test_profile}"
+assert_output "BMSU_RESTORE_PATH: '/${INVALID_PATH}' does not exist" "${BMSU}" restore
