@@ -7,20 +7,21 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Added
+
+- `bmsu config example` to show the default profile config for your version of bmsu
+- `bmsu config diff` to diff your config vs the default profile config
 
 ## [0.2.0] - 2026-04-02
 
-🧬 *Introduces a new `BMSU_RESTORE_PATH` config option (check the readme for details).*
-
 ### Added
 
-- `restore` command to support easy restoring
+- `bmsu restore` command to support easy restoring
 
 ### Changed
 
 - Enforce `--relative` (or `-R`) for more predictable backups and restores
-- `config` now supports passing in rsync flags to preview what will get set
+- `bmsu config` now supports passing in rsync flags to preview what will get set
 
 ## [0.1.0] - 2026-04-01
 

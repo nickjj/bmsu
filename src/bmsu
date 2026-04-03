@@ -17,6 +17,138 @@ readonly C_MAGENTA=$'\e[1;35;1m'
 readonly C_CYAN=$'\e[1;36;1m'
 readonly C_RESET=$'\e[0m'
 
+readonly CONFIG_DEBUG="$(
+  cat <<EOF
+# Default to not using debug mode but allow running DEBUG=1 bmsu. If you
+# want debug on by default set \${DEBUG-1} below. Even if it's enabled
+# by default you can still run commands without it using DEBUG= bmsu.
+export DEBUG="\${DEBUG-}"
+EOF
+)"
+
+readonly CONFIG_BMSU_DEFAULT_RSYNC_OPTS="$(
+  cat <<EOF
+# Flags and arguments that will get passed to rsync by default. If you leave
+# this as is it will fallback to what the script internally defines.
+#
+# - Left as is OR commented out            -> default options get used
+# - Remove () and set an empty value OR "" -> no options will get set
+# - Add your own array items               -> only your options get used
+#
+# For example, if you don't like verbose mode you can set this:
+#   BMSU_DEFAULT_RSYNC_OPTS=("--archive" "--relative")
+export BMSU_DEFAULT_RSYNC_OPTS=()
+EOF
+)"
+
+readonly CONFIG_BMSU_DESTINATION="$(
+  cat <<EOF
+# Where do you want the source paths to be sync'd to? This is your backup
+# destination. The path must not end with a forward slash.
+#
+# For example, I have mine set to BMSU_DESTINATION=/data/backup/desktop and in
+# this case /data/backup is a mount pointing to an external drive. Inside of
+# that, the desktop directory is where my desktop machine's backups go.
+#
+# It can be a local mount, network mount or SSH path. If it's a mount, it must
+# be an absolute path (starts with '/') or be a variable that resolves to one.
+export BMSU_DESTINATION=
+EOF
+)"
+
+readonly CONFIG_BMSU_SOURCES="$(
+  cat <<EOF
+# Which paths do you want backed up? They must not end with a forward slash
+# and all paths must be an absolute path or be a variable that resolves to one.
+#
+# It defaults to nothing, if you want ideas, here's what mine is set to:
+#
+# export BMSU_SOURCES=(
+#   "\${HOME}/.config"
+#   "\${HOME}/.docker/config.json"
+#   "\${HOME}/.ssh"
+#   "\${HOME}/src"
+#   "/data/storage/docs"
+#   "/data/storage/games/backups"
+#   "/data/storage/media"
+# )
+export BMSU_SOURCES=()
+EOF
+)"
+
+readonly CONFIG_BMSU_EXCLUDE_PATTERNS="$(
+  cat <<EOF
+# File and directory patterns that will get excluded. This avoids backing up
+# cache, temporary and other generated files that exist in your source paths.
+#
+# All 3 variables below follow the same rules as BMSU_DEFAULT_RSYNC_OPTS for
+# setting their values (keep it as is, empty or add in your own custom values).
+#
+# Unless you have a strong reason you'll probably only end up setting EXTRAS,
+# in which case please open a PR if they're semi-general purpose patterns!
+export BMSU_EXCLUDE_PATTERNS=()
+EOF
+)"
+
+readonly CONFIG_BMSU_EXCLUDE_PATTERNS_EXTRAS="$(
+  cat <<EOF
+# Append items to the default list.
+export BMSU_EXCLUDE_PATTERNS_EXTRAS=()
+EOF
+)"
+
+readonly CONFIG_BMSU_EXCLUDE_PATTERNS_SKIP="$(
+  cat <<EOF
+# Remove items from the default list.
+export BMSU_EXCLUDE_PATTERNS_SKIP=()
+EOF
+)"
+
+readonly CONFIG_BMSU_RESTORE_PATH="$(
+  cat <<EOF
+# This remains unused unless you run \`(bmsu restore)\`.
+#
+# When you're ready to restore, you'll want to set "/", since --relative is
+# always used rsync knows to create your source paths where they should be.
+# For testing you can use "/tmp" to see which files really get restored.
+#
+# Tip: you can use the rsync --update flag to avoid overwriting newer files
+# that exist on your source. Be careful with --delete too!
+#
+# Debug mode is always enabled for it, there's also --dry-run and temporarily
+# using "/tmp" to verify your paths before you perform your restore on "/".
+#
+# P.S., the special /./ path you'll see in the final rsync command configures
+# rsync to only restore the path to the right of it, this avoids copying your
+# BMSU_DESTINATION as part of the restore path.
+export BMSU_RESTORE_PATH=
+EOF
+)"
+
+readonly CONFIG_DEFAULT="$(
+  cat <<EOF
+#!/usr/bin/env bash
+
+set -o errexit
+
+${CONFIG_DEBUG}
+
+${CONFIG_BMSU_DEFAULT_RSYNC_OPTS}
+
+${CONFIG_BMSU_DESTINATION}
+
+${CONFIG_BMSU_SOURCES}
+
+${CONFIG_BMSU_EXCLUDE_PATTERNS}
+
+${CONFIG_BMSU_EXCLUDE_PATTERNS_EXTRAS}
+
+${CONFIG_BMSU_EXCLUDE_PATTERNS_SKIP}
+
+${CONFIG_BMSU_RESTORE_PATH}
+EOF
+)"
+
 # -----------------------------------------------------------------------------
 # Get the version
 # -----------------------------------------------------------------------------
@@ -45,8 +177,8 @@ multiple devices (desktop, laptop, phone, etc.) the default is all you need.
 
 All profiles are saved in: ${CONFIG_DIR}
 
-This script will never touch your profiles, if new configuration options get
-introduced it's up to you to define them, check the changelog for these cases.
+This script will never edit your profiles, if any configuration options change
+then bmsu will let you know when you try to run a backup or restore.
 
 See https://github.com/nickjj/bmsu for details and to report issues.
 
@@ -63,8 +195,14 @@ ${0} --dry-run --delete
 # Provide more output and requires typing 'y' to confirm before running it.
 DEBUG=1 ${0}
 
-# Instead of performing a backup, output the config being used.
+# Instead of performing a backup, output your profile's config being used.
 ${0} config
+
+# Show the default profile config for your downloaded version of bmsu.
+${0} config example
+
+# Diff your config vs the default profile config.
+${0} config diff
 
 # Use a different profile other than the default.
 BMSU_PROFILE=laptop ${0}
@@ -84,87 +222,7 @@ create_default_profile() {
   [ -f "${DEFAULT_PROFILE}" ] && return
 
   mkdir -p "${CONFIG_DIR}"
-
-  cat <<EOF >"${DEFAULT_PROFILE}"
-#!/usr/bin/env bash
-
-set -o errexit
-
-# Default to not using debug mode but allow running DEBUG=1 bmsu. If you
-# want debug on by default set \${DEBUG-1} below. Even if it's enabled
-# by default you can still run commands without it using DEBUG= bmsu.
-export DEBUG="\${DEBUG-}"
-
-# Flags and arguments that will get passed to rsync by default. If you leave
-# this as is it will fallback to what the script internally defines.
-#
-# - Left as is OR commented out            -> default options get used
-# - Remove () and set an empty value OR "" -> no options will get set
-# - Add your own array items               -> only your options get used
-#
-# For example, if you don't like verbose mode you can set this:
-#   BMSU_DEFAULT_RSYNC_OPTS=("--archive" "--relative")
-export BMSU_DEFAULT_RSYNC_OPTS=()
-
-# Where do you want the source paths to be sync'd to? This is your backup
-# destination. The path must not end with a forward slash.
-#
-# For example, I have mine set to BMSU_DESTINATION=/data/backup/desktop and in
-# this case /data/backup is a mount pointing to an external drive. Inside of
-# that, the desktop directory is where my desktop machine's backups go.
-#
-# It can be a local mount, network mount or SSH path. If it's a mount, it must
-# be an absolute path (starts with '/') or be a variable that resolves to one.
-export BMSU_DESTINATION=
-
-# Which paths do you want backed up? They must not end with a forward slash
-# and all paths must be an absolute path or be a variable that resolves to one.
-#
-# It defaults to nothing, if you want ideas, here's what mine is set to:
-# export BMSU_SOURCES=(
-#   "\${HOME}/.config"
-#   "\${HOME}/.docker/config.json"
-#   "\${HOME}/.ssh"
-#   "\${HOME}/src"
-#   "/data/storage/docs"
-#   "/data/storage/games/backups"
-#   "/data/storage/media"
-# )
-export BMSU_SOURCES=()
-
-# File and directory patterns that will get excluded. This avoids backing up
-# cache, temporary and other generated files that exist in your source paths.
-#
-# All 3 variables below follow the same rules as BMSU_DEFAULT_RSYNC_OPTS for
-# setting their values (keep it as is, empty or add in your own custom values).
-#
-# Unless you have a strong reason you'll probably only end up setting EXTRAS,
-# in which case please open a PR if they're semi-general purpose patterns!
-export BMSU_EXCLUDE_PATTERNS=()
-
-# Append items to the default list.
-export BMSU_EXCLUDE_PATTERNS_EXTRAS=()
-
-# Remove items from the default list.
-export BMSU_EXCLUDE_PATTERNS_SKIP=()
-
-# This remains unused unless you run \`(bmsu restore)\`.
-#
-# When you're ready to restore, you'll want to set "/", since --relative is
-# always used rsync knows to create your source paths where they should be.
-# For testing you can use "/tmp" to see which files really get restored.
-#
-# Tip: you can use the rsync --update flag to avoid overwriting newer files
-# that exist on your source. Be careful with --delete too!
-#
-# Debug mode is always enabled for it, there's also --dry-run and temporarily
-# using "/tmp" to verify your paths before you perform your restore on "/".
-#
-# P.S., the special /./ path you'll see in the final rsync command configures
-# rsync to only restore the path to the right of it, this avoids copying your
-# BMSU_DESTINATION as part of the restore path.
-export BMSU_RESTORE_PATH=
-EOF
+  echo "${CONFIG_DEFAULT}" >"${DEFAULT_PROFILE}"
 
   cat <<EOF
 This appears to be the first time you're running bmsu.
@@ -223,6 +281,27 @@ EOF
   done
 
   echo
+}
+
+show_config_example() {
+  # We live the good life, let's try and see if bat is available first.
+  command -v bat >/dev/null 2>&1 && bat --paging=never --style=plain <<<"${CONFIG_DEFAULT}" || cat <<<"${CONFIG_DEFAULT}"
+}
+
+show_config_diff() {
+  local default_label="default config for ${0} ${SCRIPT_VERSION}"
+  local profile_path="${CONFIG_DIR}/${BMSU_PROFILE}"
+
+  # We live the good life, let's try and see if delta is available first.
+  # Also we want nice labels and macOS' version of diff doesn't support color
+  # by default so we can roll our own in a cross OS compatible way.
+  { diff -u -L "${default_label}" -L "${profile_path}" \
+    <(echo "${CONFIG_DEFAULT}") "${profile_path}" || true; } |
+    if command -v delta >/dev/null 2>&1; then
+      DELTA_FEATURES="diff-so-fancy" delta --paging=never
+    else
+      sed "s/^-/${C_RED}-/g; s/^+/${C_GREEN}+/g; s/^@/${C_CYAN}@/g; s/$/${C_RESET}/g"
+    fi
 }
 
 create_default_profile
@@ -333,6 +412,9 @@ merge_rsync_opts() {
   # Known bmsu commands to skip forwarding to rsync.
   if [[ "${rsync_opts_from_args[0]:-}" =~ ^(config|restore)$ ]]; then
     rsync_opts_from_args=("${rsync_opts_from_args[@]:1}")
+
+    [ "${rsync_opts_from_args[0]:-}" == "example" ] && show_config_example && exit
+    [ "${rsync_opts_from_args[0]:-}" == "diff" ] && show_config_diff && exit
   fi
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")
@@ -444,20 +526,39 @@ BMSU_REMOTE_DESTINATION=
 [[ "${BMSU_DESTINATION}" == *:* ]] && BMSU_REMOTE=1
 
 # -----------------------------------------------------------------------------
-# Validate destination
+# Show missing config help
 # -----------------------------------------------------------------------------
-validate_destination() {
-  if [ -z "${BMSU_DESTINATION}" ]; then
-    cat <<EOF >&2
-${C_RED}BMSU_DESTINATION${C_RESET}: cannot be empty, set it in your config, aborting!
+_missing_config_help() {
+  local variable="${1}"
+
+  cat <<EOF >&2
+${C_RED}${variable}${C_RESET}: cannot be empty, set it in your config, aborting!
 
 Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
 
-There's a comment in the config file that has an example.
+There's a comment in the config file that has an example. In case your config
+is missing it due to being outdated or modified, here it is:
+
+---
+
+${CONFIG_BMSU_SOURCES}
+
+---
+
+Tips:
+
+- Run \`${0} config example\` to see the latest config
+- Run \`${0} config diff\` to diff your config vs the latest config
 EOF
 
-    exit 1
-  fi
+  exit 1
+}
+
+# -----------------------------------------------------------------------------
+# Validate destination
+# -----------------------------------------------------------------------------
+validate_destination() {
+  [ -z "${BMSU_DESTINATION}" ] && _missing_config_help "BMSU_DESTINATION"
 
   if [[ "${BMSU_DESTINATION}" == */ ]]; then
     cat <<EOF >&2
@@ -583,17 +684,7 @@ validate_exclude_patterns() {
 # Validate and build up sources
 # -----------------------------------------------------------------------------
 validate_sources() {
-  if ((${#BMSU_SOURCES[@]} == 0)); then
-    cat <<EOF >&2
-${C_RED}BMSU_SOURCES${C_RESET}: cannot be empty, set it in your config, aborting!
-
-Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
-
-There's a comment in the config file that has an example.
-EOF
-
-    exit 1
-  fi
+  ((${#BMSU_SOURCES[@]} == 0)) && _missing_config_help "BMSU_SOURCES"
 
   [ "${BMSU_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE=$(realpath "${BMSU_DESTINATION}")
 
@@ -656,17 +747,7 @@ validate_and_prepare_restore_path() {
   # Skip doing anything when we're not restoring.
   [ "${args[0]:-}" != "restore" ] && return
 
-  if [ -z "${BMSU_RESTORE_PATH}" ]; then
-    cat <<EOF >&2
-${C_RED}BMSU_RESTORE_PATH${C_RESET}: cannot be empty, set it in your config, aborting!
-
-Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
-
-There's a comment in the config file that has an example.
-EOF
-
-    exit 1
-  fi
+  [ -z "${BMSU_RESTORE_PATH}" ] && _missing_config_help "BMSU_RESTORE_PATH"
 
   # We'll allow "/" by itself since that's an expected path.
   if [[ "${BMSU_RESTORE_PATH}" != "/" && "${BMSU_RESTORE_PATH}" == */ ]]; then

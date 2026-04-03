@@ -132,6 +132,10 @@ assert_output "BMSU_PROFILE: ${test_profile_name}" "${BMSU}" config
 perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello" "--relative")|' "${test_profile}"
 assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
 
+assert_output "DEBUG=" "${BMSU}" config example
+
+assert_output "default config for ${BMSU}" "${BMSU}" config diff
+
 perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("-")|' "${test_profile}"
 assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
 

@@ -138,6 +138,7 @@ export BMSU_DESTINATION=()
 # and all paths must be an absolute path or be a variable that resolves to one.
 #
 # It defaults to nothing, if you want ideas, here's what mine is set to:
+#
 # export BMSU_SOURCES=(
 #   "${HOME}/.config"
 #   "${HOME}/.docker/config.json"
@@ -200,6 +201,15 @@ DEBUG=1 bmsu
 # of everything in a zero risk way. Debug mode will output this automatically.
 bmsu config
 
+# Show the default profile config for your downloaded version of bmsu, this could
+# be helpful in case future updates adjust the config options or you want to see
+# the defaults. If you're ever missing a config item, bmsu will let you know too.
+bmsu config example
+
+# Show a diff of your config vs the default config, this could be helpful to
+# compare any changes you've made in case you want to see the defaults.
+bmsu config diff
+
 # If you have more than 1 backup profile, pass it to the BMSU_PROFILE= env var.
 #
 # This could be handy if you have a few files you want backed up to target A and
@@ -228,7 +238,7 @@ bmsu --delete
 # Pass as many flags as you want in any order rsync accepts them.
 bmsu --dry-run --delete
 
-# Passing rsync flags here helps see what will be used when you backup.
+# Passing rsync flags here helps see what will be used when you backup or restore.
 bmsu config --dry-run
 
 # A quick tip for restoring from a backup, but avoid clobbering newer files
