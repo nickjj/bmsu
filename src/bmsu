@@ -5,6 +5,7 @@ set -o pipefail
 set -o nounset
 
 readonly SCRIPT_VERSION="0.3.2"
+readonly SCRIPT_NAME="${0##*/}"
 
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-"${HOME}/.config"}/bmsu"
 readonly DEFAULT_PROFILE="${CONFIG_DIR}/default"
@@ -164,7 +165,7 @@ if [[ "${1:-}" =~ ^(-h|--help|help)$ ]]; then
 TL;DR
 -------------------------------------------------------------------------------
 
-When running ${0} it depends on having a "profile", this has configuration such
+When running ${SCRIPT_NAME} it depends on having a "profile", this has configuration such
 as defining your source and destination paths, exclude patterns and more.
 
 A default profile gets created for you and all custom profiles you create
@@ -185,31 +186,31 @@ EXAMPLES
 -------------------------------------------------------------------------------
 
 # Perform a backup with the default profile.
-${0}
+${SCRIPT_NAME}
 
 # Pass 1 or more flags straight to rsync.
-${0} --dry-run --delete
+${SCRIPT_NAME} --dry-run --delete
 
 # Provide more output and requires typing 'y' to confirm before running it.
-DEBUG=1 ${0}
+DEBUG=1 ${SCRIPT_NAME}
 
 # Instead of performing a backup, output your profile's config being used.
-${0} config
+${SCRIPT_NAME} config
 
 # Show the default profile config for your downloaded version of bmsu.
-${0} config example
+${SCRIPT_NAME} config example
 
 # Diff your config vs the default profile config.
-${0} config diff
+${SCRIPT_NAME} config diff
 
 # Quick access to edit your profile's config file.
-${0} config edit
+${SCRIPT_NAME} config edit
 
 # Use a different profile other than the default.
-BMSU_PROFILE=laptop ${0}
+BMSU_PROFILE=laptop ${SCRIPT_NAME}
 
 # Perform a restore but avoid clobbering newer files that exist on your source system.
-${0} restore --update
+${SCRIPT_NAME} restore --update
 EOF
 
   exit
@@ -233,7 +234,7 @@ A default profile for you was just created in: ${CONFIG_DIR}
 You'll want to configure both BMSU_DESTINATION and BMSU_SOURCES in that file,
 there's plenty of comments to get you going.
 
-Also, you can run \`${0} --help\` to get help at any time.
+Also, you can run \`${SCRIPT_NAME} --help\` to get help at any time.
 EOF
   exit
 }
@@ -294,7 +295,7 @@ show_config_example() {
 }
 
 show_config_diff() {
-  local default_label="default config for ${0} ${SCRIPT_VERSION}"
+  local default_label="default config for ${SCRIPT_NAME} ${SCRIPT_VERSION}"
   local profile_path="${CONFIG_DIR}/${BMSU_PROFILE}"
 
   # We live the good life, let's try and see if delta is available first.
@@ -318,7 +319,7 @@ It's a Unix convention to set it so programs know which editor to open by defaul
 
 If you have vim, nano or another common editor installed, try running:
 
-EDITOR=vim ${0} config edit
+EDITOR=vim ${SCRIPT_NAME} config edit
 
 You can persist this in your shell's rc file (bash, zsh, etc.) by adding:
 
@@ -340,7 +341,7 @@ until you've completed editing a file before continuing.
 Editors like nvim, vim and nano don't need this because they open directly
 in your shell's session and after exiting, the script knows when to resume.
 
-Once you've saved your rc file, open a new terminal session and re-run: ${0} config edit
+Once you've saved your rc file, open a new terminal session and re-run: ${SCRIPT_NAME} config edit
 EOF
 
     exit 1
@@ -488,8 +489,8 @@ ${!example_name}
 
 Tips:
 
-- Run \`${0} config example\` to see the default profile config
-- Run \`${0} config diff\` to diff your config vs the latest config
+- Run \`${SCRIPT_NAME} config example\` to see the default profile config
+- Run \`${SCRIPT_NAME} config diff\` to diff your config vs the latest config
 EOF
 }
 

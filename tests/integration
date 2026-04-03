@@ -153,7 +153,7 @@ assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
 
 assert_output "DEBUG=" "${BMSU}" config example
 
-assert_output "default config for ${BMSU}" "${BMSU}" config diff
+assert_output "default config for bmsu" "${BMSU}" config diff
 
 assert_output "'EDITOR' environment variable is not set" env EDITOR= "${BMSU}" config edit
 
