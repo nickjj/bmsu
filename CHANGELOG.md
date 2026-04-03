@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Fixed
+
+- Report back the correct help message for failing config validations
 
 ## [0.3.0] - 2026-04-02
 

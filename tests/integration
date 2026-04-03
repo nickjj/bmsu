@@ -194,7 +194,7 @@ assert_output "BMSU_SOURCES: '${TMP_DIR}/' cannot end with a forward slash" "${B
 
 perl -pi -e "
   s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/var\")|;
-  s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=(\"${TMP_DIR}\")|;
+  s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|;
   s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=|
 " "${test_profile}"
 assert_output "BMSU_RESTORE_PATH: cannot be empty" "${BMSU}" restore

@@ -404,6 +404,73 @@ fi
 BMSU_RESTORE_PATH="${BMSU_RESTORE_PATH:-}"
 
 # -----------------------------------------------------------------------------
+# Validation helpers
+# -----------------------------------------------------------------------------
+_invalid_config_help() {
+  local variable_name="${1}"
+  local example_name="CONFIG_${variable_name}"
+
+  cat <<EOF >&2
+Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
+
+Here's an example of how to set ${variable_name}:
+
+---
+
+${!example_name}
+
+---
+
+Tips:
+
+- Run \`${0} config example\` to see the default profile config
+- Run \`${0} config diff\` to diff your config vs the latest config
+EOF
+}
+
+_invalid_config_empty() {
+  local variable_name="${1}"
+
+  if [[ -z ${!variable_name+x} ]] || [[ -z ${!variable_name} ]]; then
+    cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: cannot be empty, set it in your config, aborting!
+
+EOF
+
+    _invalid_config_help "${variable_name}"
+    exit 1
+  fi
+}
+
+_invalid_config_array() {
+  local variable_name="${1}"
+
+  if [[ ! ${!variable_name@a} == *a* ]]; then
+    cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: must be an array (not string), aborting!
+
+EOF
+
+    _invalid_config_help "${variable_name}"
+    exit 1
+  fi
+}
+
+_invalid_config_string() {
+  local variable_name="${1}"
+
+  if [[ ${!variable_name@a} == *a* ]]; then
+    cat <<EOF >&2
+${C_RED}${variable_name}${C_RESET}: must be a string (not array), aborting!
+
+EOF
+
+    _invalid_config_help "${variable_name}"
+    exit 1
+  fi
+}
+
+# -----------------------------------------------------------------------------
 # Merge config values
 # -----------------------------------------------------------------------------
 merge_rsync_opts() {
@@ -530,39 +597,11 @@ BMSU_REMOTE_DESTINATION=
 [[ "${BMSU_DESTINATION}" == *:* ]] && BMSU_REMOTE=1
 
 # -----------------------------------------------------------------------------
-# Show missing config help
-# -----------------------------------------------------------------------------
-_missing_config_help() {
-  local variable="${1}"
-
-  cat <<EOF >&2
-${C_RED}${variable}${C_RESET}: cannot be empty, set it in your config, aborting!
-
-Your profile's config can be found at: ${CONFIG_DIR}/${BMSU_PROFILE}
-
-There's a comment in the config file that has an example. In case your config
-is missing it due to being outdated or modified, here it is:
-
----
-
-${CONFIG_BMSU_SOURCES}
-
----
-
-Tips:
-
-- Run \`${0} config example\` to see the latest config
-- Run \`${0} config diff\` to diff your config vs the latest config
-EOF
-
-  exit 1
-}
-
-# -----------------------------------------------------------------------------
 # Validate destination
 # -----------------------------------------------------------------------------
 validate_destination() {
-  [ -z "${BMSU_DESTINATION}" ] && _missing_config_help "BMSU_DESTINATION"
+  _invalid_config_empty "BMSU_DESTINATION"
+  _invalid_config_string "BMSU_DESTINATION"
 
   if [[ "${BMSU_DESTINATION}" == */ ]]; then
     cat <<EOF >&2
@@ -688,7 +727,8 @@ validate_exclude_patterns() {
 # Validate and build up sources
 # -----------------------------------------------------------------------------
 validate_sources() {
-  ((${#BMSU_SOURCES[@]} == 0)) && _missing_config_help "BMSU_SOURCES"
+  _invalid_config_empty "BMSU_SOURCES"
+  _invalid_config_array "BMSU_SOURCES"
 
   [ "${BMSU_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE=$(realpath "${BMSU_DESTINATION}")
 
@@ -751,7 +791,8 @@ validate_and_prepare_restore_path() {
   # Skip doing anything when we're not restoring.
   [ "${args[0]:-}" != "restore" ] && return
 
-  [ -z "${BMSU_RESTORE_PATH}" ] && _missing_config_help "BMSU_RESTORE_PATH"
+  _invalid_config_empty "BMSU_RESTORE_PATH"
+  _invalid_config_string "BMSU_RESTORE_PATH"
 
   # We'll allow "/" by itself since that's an expected path.
   if [[ "${BMSU_RESTORE_PATH}" != "/" && "${BMSU_RESTORE_PATH}" == */ ]]; then

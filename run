@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Helper script to manage the project itself.
 
 set -o errexit
 set -o pipefail
@@ -42,6 +43,90 @@ quality() {
   # Perform all code quality commands together
   lint "${@}"
   format "${@}"
+}
+
+release() {
+  # Update a few files with a new release version and tag a release.
+  local repo_name="nickjj/bmsu"
+  local version_regex="[0-9]+\.[0-9]+\.[0-9]+"
+  local source_files=("src/bmsu")
+  local readme_files=("README.md")
+
+  export GIT_PAGER=
+
+  printf "Here's the 3 latest releases:\n\n"
+  git tag | tail -3
+
+  local previous_version
+  previous_version=$(grep --max-count 1 \
+    --extended-regexp \
+    --only-matching "compare/${version_regex}\.\.\.HEAD" CHANGELOG.md |
+    grep --extended-regexp --only-matching "${version_regex}" || true)
+
+  if [ -z "${previous_version}" ]; then
+    printf "\nFailed to find 'compare/PREVIOUS_VERSION...HEAD' link in CHANGELOG.md, aborting!\n" >&2
+    exit 1
+  fi
+
+  local new_version=
+  while true; do
+    printf "\nInput the next version number: "
+    read -r new_version
+
+    if [[ ! "${new_version}" =~ ^${version_regex}$ ]]; then
+      printf "\n'%s' must match '%s', ie. 0.1.0 | 1.33.7\n" "${new_version}" "${version_regex}"
+      continue
+    fi
+
+    if [ "${new_version}" == "${previous_version}" ]; then
+      printf "\nNew version '%s' cannot be the same as the previous '%s'\n" "${new_version}" "${previous_version}"
+      continue
+    fi
+
+    echo
+    break
+  done
+
+  local changelog_new_link=
+  changelog_new_link="[${new_version}]: https://github.com/${repo_name}/compare/${previous_version}...${new_version}"
+
+  local today=
+  today=$(date "+%Y-%m-%d")
+
+  perl -0777 -pi -e "
+    s|^## \[Unreleased\]\$|## [${new_version}] - ${today}|m;
+    s|^(Changelog.*)|\$1\n\n## [Unreleased]\n\n- Nothing yet|m;
+    s|^(\[Unreleased\]:.*HEAD)\$|\$1\n${changelog_new_link}|m;
+    s|/${previous_version}...HEAD\$|/${new_version}...HEAD|m;
+  " CHANGELOG.md
+  git add CHANGELOG.md
+
+  for path in "${source_files[@]}"; do
+    perl -pi -e 's/^(readonly SCRIPT_VERSION=").*?(")/${1}'"${new_version}"'${2}/' "${path}"
+    git add "${path}"
+  done
+
+  for path in "${readme_files[@]}"; do
+    perl -pi -e 's|'"${repo_name}"'/'"${version_regex}"'|'"${repo_name}/${new_version}"'|g' "${path}"
+    git add "${path}"
+  done
+
+  git diff --staged
+
+  printf "\nDoes everything look good? Ready to commit and tag? (y/n) "
+  read -r yn
+  if [[ ! ${yn} =~ ^[Yy]$ ]]; then
+    printf "\nUse 'git restore --staged .' to unstage the changes if desired, aborting!\n" >&2
+    exit 1
+  fi
+
+  echo
+
+  git commit -m "Release version ${new_version}"
+  git tag -m "" "${new_version}"
+  git show --no-patch
+
+  printf "\n---\n\nIf everything looks good, push it with: git push origin main --tags\n"
 }
 
 ci:test() {
