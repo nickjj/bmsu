@@ -106,7 +106,7 @@ EOF
 
 CONFIG_BMSU_RESTORE_PATH="$(
   cat <<EOF
-# This remains unused unless you run \`(bmsu restore)\`.
+# This remains unused unless you run \`bmsu restore\`.
 #
 # When you're ready to restore, you'll want to set "/", since --relative is
 # always used rsync knows to create your source paths where they should be.
