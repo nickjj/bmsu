@@ -155,6 +155,12 @@ assert_output "DEBUG=" "${BMSU}" config example
 
 assert_output "default config for ${BMSU}" "${BMSU}" config diff
 
+assert_output "'EDITOR' environment variable is not set" env EDITOR= "${BMSU}" config edit
+
+assert_output "'EDITOR=no-way-this-binary-exists' was not found" env EDITOR="no-way-this-binary-exists --wait" "${BMSU}" config edit
+
+assert_output "DEBUG=" env EDITOR=cat "${BMSU}" config edit
+
 edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"-\")|"
 assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
 

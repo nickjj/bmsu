@@ -209,6 +209,9 @@ bmsu config example
 # compare any changes you've made in case you want to see the defaults.
 bmsu config diff
 
+# Quick access to edit your profile's config file.
+bmsu config edit
+
 # If you have more than 1 backup profile, pass it to the BMSU_PROFILE= env var.
 #
 # This could be handy if you have a few files you want backed up to target A and

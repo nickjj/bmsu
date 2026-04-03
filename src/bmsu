@@ -202,11 +202,14 @@ ${0} config example
 # Diff your config vs the default profile config.
 ${0} config diff
 
+# Quick access to edit your profile's config file.
+${0} config edit
+
 # Use a different profile other than the default.
 BMSU_PROFILE=laptop ${0}
 
 # Perform a restore but avoid clobbering newer files that exist on your source system.
-bmsu restore --update
+${0} restore --update
 EOF
 
   exit
@@ -304,6 +307,70 @@ show_config_diff() {
     else
       sed "s/^-/${C_RED}-/g; s/^+/${C_GREEN}+/g; s/^@/${C_CYAN}@/g; s/$/${C_RESET}/g"
     fi
+}
+
+edit_config() {
+  if [ -z "${EDITOR:-}" ]; then
+    cat <<EOF >&2
+${C_RED}EDITOR${C_RESET}: 'EDITOR' environment variable is not set.
+
+It's a Unix convention to set it so programs know which editor to open by default.
+
+If you have vim, nano or another common editor installed, try running:
+
+EDITOR=vim ${0} config edit
+
+You can persist this in your shell's rc file (bash, zsh, etc.) by adding:
+
+export EDITOR="vim"
+
+Replace "vim" with your editor's command, such as "nvim", "code", "subl", "nano", etc..
+
+If you have certain graphical editors like code, subl or others it's a good
+idea to also set them to wait, it's common for it to be the --wait flag but
+you can check your editor's --help for details.
+
+In which case you would set this instead:
+
+export EDITOR="code --wait"
+
+This script doesn't require this behavior but other scripts might want to wait
+until you've completed editing a file before continuing.
+
+Editors like nvim, vim and nano don't need this because they open directly
+in your shell's session and after exiting, the script knows when to resume.
+
+Once you've saved your rc file, open a new terminal session and re-run: ${0} config edit
+EOF
+
+    exit 1
+  fi
+
+  # In case it has flags (--wait, etc.), only return the binary name.
+  local editor_binary="${EDITOR%% *}"
+
+  if ! command -v "${editor_binary}" >/dev/null 2>&1; then
+    cat <<EOF >&2
+${C_RED}EDITOR${C_RESET}: 'EDITOR=${editor_binary}' was not found.
+
+Make sure it's on available on your system path. You need it to be directly
+callable from your shell. If you can't, it's not on your path. Check your
+editor's documentation for details.
+
+Usually it means making sure its binary is in /usr/local/bin or ~/.local/bin
+and those paths would be set in your PATH which is configured in your shell's
+profile or rc file.
+
+You can check your path by running: echo \${PATH}
+
+For example, here's your \$PATH:
+
+${PATH}
+EOF
+    exit 1
+  fi
+
+  ${EDITOR} "${CONFIG_DIR}/${BMSU_PROFILE}"
 }
 
 create_default_profile
@@ -544,6 +611,7 @@ merge_rsync_opts() {
 
     [ "${rsync_opts_from_args[0]:-}" == "example" ] && show_config_example && exit
     [ "${rsync_opts_from_args[0]:-}" == "diff" ] && show_config_diff && exit
+    [ "${rsync_opts_from_args[0]:-}" == "edit" ] && edit_config && exit
   fi
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")

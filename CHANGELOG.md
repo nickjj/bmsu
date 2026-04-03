@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Added
+
+- `bmsu config edit` to edit your profile's config in your configured `EDITOR`
 
 ## [0.3.1] - 2026-04-02
 
