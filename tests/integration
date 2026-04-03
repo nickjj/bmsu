@@ -14,12 +14,12 @@ set -o nounset
 
 DEBUG_TESTS="${DEBUG_TESTS:-}"
 
+BMSU="src/bmsu"
+
 TMP_DIR="/dev/shm"
 
 # Something that is pretty much impossible to really exist.
 INVALID_PATH="intergalactic-nocturnal-horse-radish"
-
-BMSU="src/bmsu"
 
 readonly C_RED=$'\e[1;31;1m'
 readonly C_GREEN=$'\e[1;32;1m'
@@ -27,27 +27,28 @@ readonly C_MAGENTA=$'\e[1;35;1m'
 readonly C_CYAN=$'\e[1;36;1m'
 readonly C_RESET=$'\e[0m'
 
-# -----------------------------------------------------------------------------
-# Allow safe local testing
-# -----------------------------------------------------------------------------
-readonly default_profile="${XDG_CONFIG_HOME}/bmsu/default"
+readonly DEFAULT_PROFILE="${XDG_CONFIG_HOME}/bmsu/default"
 
-readonly test_profile_name="bmsu-test-profile"
-readonly test_profile="${default_profile/default/"${test_profile_name}"}"
+readonly TEST_PROFILE_NAME="bmsu-test-profile"
+readonly TEST_PROFILE="${DEFAULT_PROFILE/default/"${TEST_PROFILE_NAME}"}"
+
+if [ -f "${DEFAULT_PROFILE}" ]; then
+  mv "${DEFAULT_PROFILE}" "${DEFAULT_PROFILE}.bak"
+fi
+
+# -----------------------------------------------------------------------------
+# Test helpers
+# -----------------------------------------------------------------------------
 
 cleanup() {
-  if [ -f "${default_profile}.bak" ]; then
-    mv "${default_profile}.bak" "${default_profile}"
+  if [ -f "${DEFAULT_PROFILE}.bak" ]; then
+    mv "${DEFAULT_PROFILE}.bak" "${DEFAULT_PROFILE}"
   fi
 
-  rm -rf "${test_profile}" tmp
+  rm -rf "${TEST_PROFILE}" tmp
 }
 
 trap cleanup EXIT
-
-if [ -f "${default_profile}" ]; then
-  mv "${default_profile}" "${default_profile}.bak"
-fi
 
 _assert() {
   local match_type="${1}"
@@ -114,6 +115,19 @@ assert_no_output() {
   _assert "!" "${@}"
 }
 
+edit_config() {
+  local patterns=()
+
+  for pattern in "${@}"; do
+    patterns+=("-e" "${pattern};")
+  done
+
+  perl -pi "${patterns[@]}" "${TEST_PROFILE}"
+}
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
 assert_output "$(git describe --tags --abbrev=0)" "${BMSU}" --version
 
 assert_output "EXAMPLES" "${BMSU}" --help
@@ -129,96 +143,93 @@ assert_output "RSYNC_OPTIONS: '--no-relative' cannot be set" "${BMSU}" config --
 assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
 
 # Never operate on the default config and use a name that won't normally exist.
-cp "${default_profile}" "${test_profile}"
-export BMSU_PROFILE="${test_profile_name}"
+cp "${DEFAULT_PROFILE}" "${TEST_PROFILE}"
+export BMSU_PROFILE="${TEST_PROFILE_NAME}"
 
-assert_output "BMSU_PROFILE: ${test_profile_name}" "${BMSU}" config
+assert_output "BMSU_PROFILE: ${TEST_PROFILE_NAME}" "${BMSU}" config
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--hello" "--relative")|' "${test_profile}"
+edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"--hello\" \"--relative\")|"
 assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
 
 assert_output "DEBUG=" "${BMSU}" config example
 
 assert_output "default config for ${BMSU}" "${BMSU}" config diff
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("-")|' "${test_profile}"
+edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"-\")|"
 assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--")|' "${test_profile}"
+edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"--\")|"
 assert_output "RSYNC_OPTIONS: '--' must start with" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=("--archive")|' "${test_profile}"
+edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"--archive\")|"
 assert_output "RSYNC_OPTIONS: '--relative' is missing" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=()|' "${test_profile}"
+edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=()|"
 assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
 
-perl -pi -e '
-  s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=("cool")|;
-  s|^export BMSU_EXCLUDE_PATTERNS_SKIP=.*|export BMSU_EXCLUDE_PATTERNS_SKIP=("*~")|
-' "${test_profile}"
+edit_config \
+  "s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=(\"cool\")|" \
+  "s|^export BMSU_EXCLUDE_PATTERNS_SKIP=.*|export BMSU_EXCLUDE_PATTERNS_SKIP=(\"*~\")|"
 assert_output "BMSU_EXCLUDE_PATTERNS_EXTRAS:\n  \[\d\] cool" "${BMSU}" config
 assert_no_output "BMSU_EXCLUDE_PATTERNS:\n  \[0] \*~" "${BMSU}" config
 
-perl -pi -e '
-  s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=()|;
-  s|^export BMSU_EXCLUDE_PATTERNS=.*|export BMSU_EXCLUDE_PATTERNS=|
-' "${test_profile}"
+edit_config \
+  "s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=()|" \
+  "s|^export BMSU_EXCLUDE_PATTERNS=.*|export BMSU_EXCLUDE_PATTERNS=|"
 assert_output "BMSU_EXCLUDE_PATTERNS:\s*\n\n" "${BMSU}" config
 
-perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/and/with/extra/paths/\"|" "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/and/with/extra/paths/\"|"
 assert_output "BMSU_DESTINATION: '${TMP_DIR}/and/with/extra/paths/' cannot end with a forward slash" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":~/"|' "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\":~/\"|"
 assert_output "BMSU_DESTINATION: ':~/' cannot end with a forward slash" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":badpath"|' "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\":badpath\"|"
 assert_output "BMSU_DESTINATION: ':badpath' is an invalid format" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=":~badpath"|' "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\":~badpath\"|"
 assert_output "BMSU_DESTINATION: ':~badpath' is an invalid format" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|"
 assert_output "BMSU_SOURCES: cannot be empty" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_SOURCES=.*|export BMSU_SOURCES=("tmp")|' "${test_profile}"
+edit_config "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"tmp\")|"
 assert_output "BMSU_SOURCES: 'tmp' must be an absolute path" "${BMSU}"
 
 mkdir -p tmp
 
-perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION="tmp"|' "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"tmp\"|"
 assert_output "BMSU_DESTINATION: 'tmp' must be an absolute path" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/${INVALID_PATH}\"|" "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/${INVALID_PATH}\"|"
 assert_output "BMSU_DESTINATION: '${TMP_DIR}/${INVALID_PATH}' does not exist" "${BMSU}"
 
-perl -pi -e 's|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION="/etc"|' "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"/etc\"|"
 assert_output "BMSU_DESTINATION: '/etc' has no valid external mount" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" "${test_profile}"
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|"
 assert_output "BMSU_SOURCES: 'tmp' must be an absolute path" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"${TMP_DIR}\")|" "${test_profile}"
+edit_config "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"${TMP_DIR}\")|"
 assert_output "BMSU_SOURCES: '${TMP_DIR}' is identical to BMSU_DESTINATION='${TMP_DIR}'" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/${INVALID_PATH}\")|" "${test_profile}"
+edit_config "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/${INVALID_PATH}\")|"
 assert_output "BMSU_SOURCES: '/${INVALID_PATH}' does not exist" "${BMSU}"
 
-perl -pi -e "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=\"${TMP_DIR}/\"|" "${test_profile}"
+edit_config "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=\"${TMP_DIR}/\"|"
 assert_output "BMSU_SOURCES: '${TMP_DIR}/' cannot end with a forward slash" "${BMSU}"
 
-perl -pi -e "
-  s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/var\")|;
-  s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|;
-  s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=|
-" "${test_profile}"
+edit_config \
+  "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/var\")|" \
+  "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" \
+  "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=|"
 assert_output "BMSU_RESTORE_PATH: cannot be empty" "${BMSU}" restore
 
-perl -pi -e "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}/\"|" "${test_profile}"
+edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}/\"|"
 assert_output "BMSU_RESTORE_PATH: '${TMP_DIR}/' cannot end with a forward slash" "${BMSU}" restore
 
-perl -pi -e 's|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH="tmp"|' "${test_profile}"
+edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"tmp\"|"
 assert_output "BMSU_RESTORE_PATH: 'tmp' must be an absolute" "${BMSU}" restore
 
-perl -pi -e "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/${INVALID_PATH}\"|" "${test_profile}"
+edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/${INVALID_PATH}\"|"
 assert_output "BMSU_RESTORE_PATH: '/${INVALID_PATH}' does not exist" "${BMSU}" restore
