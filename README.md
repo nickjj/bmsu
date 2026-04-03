@@ -2,9 +2,10 @@
 
 Gain full control over your backups instead of using cloud backup services.
 
-This is directly using rsync under the hood which means you can perform backups
-to an external drive, network mounted drive or over SSH to a remote server you
-control. Restoring is painless too!
+This is directly using [rsync](https://github.com/RsyncProject/rsync) under
+the hood which means you can perform backups to an external drive, network
+mounted drive or over SSH to a remote server you control. Restoring is
+painless too!
 
 *It's a single file Bash script that works on Linux (including WSL 2) and
 macOS.*
