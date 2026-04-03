@@ -17,7 +17,7 @@ readonly C_MAGENTA=$'\e[1;35;1m'
 readonly C_CYAN=$'\e[1;36;1m'
 readonly C_RESET=$'\e[0m'
 
-readonly CONFIG_DEBUG="$(
+CONFIG_DEBUG="$(
   cat <<EOF
 # Default to not using debug mode but allow running DEBUG=1 bmsu. If you
 # want debug on by default set \${DEBUG-1} below. Even if it's enabled
@@ -26,7 +26,7 @@ export DEBUG="\${DEBUG-}"
 EOF
 )"
 
-readonly CONFIG_BMSU_DEFAULT_RSYNC_OPTS="$(
+CONFIG_BMSU_DEFAULT_RSYNC_OPTS="$(
   cat <<EOF
 # Flags and arguments that will get passed to rsync by default. If you leave
 # this as is it will fallback to what the script internally defines.
@@ -41,7 +41,7 @@ export BMSU_DEFAULT_RSYNC_OPTS=()
 EOF
 )"
 
-readonly CONFIG_BMSU_DESTINATION="$(
+CONFIG_BMSU_DESTINATION="$(
   cat <<EOF
 # Where do you want the source paths to be sync'd to? This is your backup
 # destination. The path must not end with a forward slash.
@@ -56,7 +56,7 @@ export BMSU_DESTINATION=
 EOF
 )"
 
-readonly CONFIG_BMSU_SOURCES="$(
+CONFIG_BMSU_SOURCES="$(
   cat <<EOF
 # Which paths do you want backed up? They must not end with a forward slash
 # and all paths must be an absolute path or be a variable that resolves to one.
@@ -76,7 +76,7 @@ export BMSU_SOURCES=()
 EOF
 )"
 
-readonly CONFIG_BMSU_EXCLUDE_PATTERNS="$(
+CONFIG_BMSU_EXCLUDE_PATTERNS="$(
   cat <<EOF
 # File and directory patterns that will get excluded. This avoids backing up
 # cache, temporary and other generated files that exist in your source paths.
@@ -90,21 +90,21 @@ export BMSU_EXCLUDE_PATTERNS=()
 EOF
 )"
 
-readonly CONFIG_BMSU_EXCLUDE_PATTERNS_EXTRAS="$(
+CONFIG_BMSU_EXCLUDE_PATTERNS_EXTRAS="$(
   cat <<EOF
 # Append items to the default list.
 export BMSU_EXCLUDE_PATTERNS_EXTRAS=()
 EOF
 )"
 
-readonly CONFIG_BMSU_EXCLUDE_PATTERNS_SKIP="$(
+CONFIG_BMSU_EXCLUDE_PATTERNS_SKIP="$(
   cat <<EOF
 # Remove items from the default list.
 export BMSU_EXCLUDE_PATTERNS_SKIP=()
 EOF
 )"
 
-readonly CONFIG_BMSU_RESTORE_PATH="$(
+CONFIG_BMSU_RESTORE_PATH="$(
   cat <<EOF
 # This remains unused unless you run \`(bmsu restore)\`.
 #
@@ -125,7 +125,7 @@ export BMSU_RESTORE_PATH=
 EOF
 )"
 
-readonly CONFIG_DEFAULT="$(
+CONFIG_DEFAULT="$(
   cat <<EOF
 #!/usr/bin/env bash
 
@@ -285,7 +285,11 @@ EOF
 
 show_config_example() {
   # We live the good life, let's try and see if bat is available first.
-  command -v bat >/dev/null 2>&1 && bat --paging=never --style=plain <<<"${CONFIG_DEFAULT}" || cat <<<"${CONFIG_DEFAULT}"
+  if command -v bat >/dev/null 2>&1; then
+    bat --paging=never --style=plain <<<"${CONFIG_DEFAULT}"
+  else
+    cat <<<"${CONFIG_DEFAULT}"
+  fi
 }
 
 show_config_diff() {
