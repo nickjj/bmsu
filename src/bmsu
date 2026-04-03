@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-readonly SCRIPT_VERSION="0.3.1"
+readonly SCRIPT_VERSION="0.3.2"
 
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-"${HOME}/.config"}/bmsu"
 readonly DEFAULT_PROFILE="${CONFIG_DIR}/default"
