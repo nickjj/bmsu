@@ -106,8 +106,6 @@ This gets generated for you automatically when you first run `bmsu`:
 ```sh
 #!/usr/bin/env bash
 
-set -o errexit
-
 # Default to not using debug mode but allow running DEBUG=1 bmsu. If you
 # want debug on by default set ${DEBUG-1} below. Even if it's enabled
 # by default you can still run commands without it using DEBUG= bmsu.

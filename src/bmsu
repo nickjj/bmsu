@@ -129,8 +129,6 @@ CONFIG_DEFAULT="$(
   cat <<EOF
 #!/usr/bin/env bash
 
-set -o errexit
-
 ${CONFIG_DEBUG}
 
 ${CONFIG_BMSU_DEFAULT_RSYNC_OPTS}
