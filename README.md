@@ -78,7 +78,7 @@ a modern version instead of using the 3.2 default.
 ```sh
 # Install it on a well known system path that will work on most systems.
 sudo curl \
-  -L https://raw.githubusercontent.com/nickjj/bmsu/0.4.0/src/bmsu \
+  -L https://raw.githubusercontent.com/nickjj/bmsu/0.4.1/src/bmsu \
   -o /usr/local/bin/bmsu && sudo chmod +x /usr/local/bin/bmsu
 ```
 
