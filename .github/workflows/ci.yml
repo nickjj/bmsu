@@ -17,9 +17,8 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v6"
-
-      - name: "Fetch tags (used in tests)"
-        run: git fetch --prune --unshallow --tags
+        with:
+          fetch-depth: 0
 
       - name: "Linting and formatting"
         run: |
