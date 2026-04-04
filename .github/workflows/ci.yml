@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: "actions/checkout@v6"
 
+      - name: "Fetch tags (used in tests)"
+        run: git fetch --prune --unshallow --tags
+
       - name: "Linting and testing"
         run: |
           ./run ci:test
