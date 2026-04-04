@@ -25,7 +25,7 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 - `bmsu config diff` to show a diff of your profile config vs the example config
 - `bmsu config edit` to edit your profile's config
 - `bmsu config new PROFILE_NAME` to create a new a new profile config
-- `bmsu config deletw` to delete your profile's config
+- `bmsu config delete` to delete your profile's config
 
 ### Removed
 
