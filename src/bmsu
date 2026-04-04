@@ -157,6 +157,95 @@ if [[ "${1:-}" =~ ^(-v|--version|version)$ ]]; then
 fi
 
 # -----------------------------------------------------------------------------
+# Get the latest version and maybe update
+# -----------------------------------------------------------------------------
+version_latest() {
+  local url="https://raw.githubusercontent.com/nickjj/bmsu/main/src/bmsu"
+  local result=
+
+  # This is an undocumented feature to make it easier to test this function
+  # without creating a mock for curl. Not a fan of this but it works.
+  if [ -n "${BMSU_TEST_VALUE:-}" ]; then
+    result="${BMSU_TEST_VALUE}"
+  else
+    # Returns back either the version number or an error by curl which
+    # starts with "curl", we want result= to contain either or.
+    result=$(curl --fail --silent --show-error --location --max-time 5 "${url}" 2>&1 |
+      sed -n '/^readonly SCRIPT_VERSION=/ s/.*"\(.*\)".*/\1/p; /^curl/p') || true
+  fi
+
+  if [[ ! "${result}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    cat <<EOF >&2
+${C_RED}CURL${C_RESET}: unable to check the latest release, aborting!
+
+Reason: ${result:-"Unknown (curl returned no information)"}
+
+Check the latest version at: https://github.com/nickjj/bmsu/blob/main/CHANGELOG.md
+EOF
+
+    exit 1
+  fi
+
+  printf "Latest version: %s\n  Your version: %s\n" "${result}" "${SCRIPT_VERSION}"
+
+  [ "${result}" == "${SCRIPT_VERSION}" ] && return
+
+  while true; do
+    printf "\nWould you like to update to the latest version? (y/n) "
+    read -r yn
+
+    case "${yn}" in
+    [Yy]*) break ;;
+    [Nn]*) exit ;;
+    *) printf "Please answer y or n\n" ;;
+    esac
+  done
+
+  local bmsu_path=
+  bmsu_path="$(realpath "${0}")"
+
+  if [[ "${bmsu_path}" == *"src/bmsu"* ]]; then
+    printf "\nSkipping, since this looks like a development version of bmsu.\n"
+    return
+  fi
+
+  local download_path=
+  download_path="$(mktemp)"
+
+  # Make sure we download the tagged version instead of from the main branch.
+  url="${url/\/main\//\/${result}\/}"
+
+  local download_result=
+  if ! download_result=$(curl --fail --silent --show-error --location --max-time 5 --output "${download_path}" "${url}" 2>&1); then
+    cat <<EOF >&2
+
+${C_RED}CURL${C_RESET}: unable to download the latest version, aborting!
+
+Reason: ${download_result:-"Unknown (curl returned no information)"}
+
+Download the latest version at: https://github.com/nickjj/bmsu
+EOF
+    exit 1
+  fi
+
+  chmod +x "${download_path}"
+
+  cat <<EOF
+
+${C_GREEN}UPDATE${C_RESET}: success, you can run bmsu to start using ${result}!
+
+Check the changelog to see what's new: https://github.com/nickjj/bmsu/blob/main/CHANGELOG.md
+EOF
+
+  mv "${download_path}" "${bmsu_path}"
+}
+
+if [[ "${1:-}" =~ ^(-V|--version-latest|version-latest)$ ]]; then
+  version_latest
+  exit
+fi
+
+# -----------------------------------------------------------------------------
 # Present help
 # -----------------------------------------------------------------------------
 if [[ "${1:-}" =~ ^(-h|--help|help)$ ]]; then
@@ -227,6 +316,19 @@ bmsu config new PROFILE_NAME
 
 # Delete your profile's config, supports BMSU_PROFILE.
 bmsu config delete
+
+-------------------------------------------------------------------------------
+BMSU DETAILS
+-------------------------------------------------------------------------------
+
+# Show the version you have currently.
+bmsu --version
+
+# Show the latest version and offer to update if a newer version exists.
+bmsu --version-latest
+
+# Show the help.
+bmsu --help
 EOF
 
   exit

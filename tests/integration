@@ -15,6 +15,7 @@ set -o nounset
 DEBUG_TESTS="${DEBUG_TESTS:-}"
 
 BMSU="src/bmsu"
+BMSU_LATEST_GIT_TAG="$(git describe --tags --abbrev=0)"
 
 TMP_DIR="/dev/shm"
 
@@ -128,9 +129,20 @@ edit_config() {
 # -----------------------------------------------------------------------------
 # Tests
 # -----------------------------------------------------------------------------
-assert_output "$(git describe --tags --abbrev=0)" "${BMSU}" --version
 
 assert_output "EXAMPLES" "${BMSU}" --help
+
+assert_output "${BMSU_LATEST_GIT_TAG}" "${BMSU}" --version
+
+assert_output ": ${BMSU_LATEST_GIT_TAG}" env BMSU_TEST_VALUE="0.4.0" "${BMSU}" --version-latest
+
+assert_output ": Connection timed out" env BMSU_TEST_VALUE="curl: Connection timed out" "${BMSU}" --version-latest
+
+assert_output "invalid-version-regex" env BMSU_TEST_VALUE="invalid-version-regex" "${BMSU}" --version-latest
+
+echo "n" | assert_output "Would you like to update" env BMSU_TEST_VALUE="777.777.777" "${BMSU}" --version-latest
+
+echo "y" | assert_output "Skipping" env BMSU_TEST_VALUE="777.777.777" "${BMSU}" --version-latest
 
 assert_output "This appears to be the first time" "${BMSU}"
 

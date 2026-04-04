@@ -33,7 +33,7 @@ we can do better, both to remove duplication and add safety.
 
 #### Since we're focused on backups, we can add a few quality of life features:
 
-- Abstract the source paths and exclude patterns into a config file that you control
+- Abstract source paths, destination, exclude patterns and more into a config file
 - Make sure the destination path is mounted if it's a mount path
     - Without this, I once accidentally backed up 182 GB to the wrong drive
 - Confirm the destination path is readable by your user
@@ -57,8 +57,9 @@ this script is the same, I cleaned it up and made it more configurable.
 
 It's not AI slop that was created HoPiNg FoR tHe BeSt. I use it every day to
 backup my *life's work* from my desktop to external drives. You'll be surprised
-at how little "real" code there is, it's basically 1 line to call rsync with
-hundreds of lines of defensive checks and config parsing.
+at how little "real" code there is, it's basically 1 line to call rsync with a
+thousand lines of defensive checks, config parsing and quality of life
+features.
 
 ## ⚡️ Install
 
@@ -262,6 +263,19 @@ bmsu config new PROFILE_NAME
 
 # Delete your profile's config (with confirmation), supports BMSU_PROFILE.
 bmsu config delete
+```
+
+Details about bmsu itself:
+
+```sh
+# Show the version you have currently.
+bmsu --version
+
+# Show the latest version and offer to update if a newer version exists.
+bmsu --version-latest
+
+# Show the help.
+bmsu --help
 ```
 
 ## 🤝 Feedback and Code Contributions
