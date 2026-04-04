@@ -7,6 +7,10 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- Nothing yet
+
+## [0.4.0] - 2026-04-03
+
 ### Added
 
 - `bmsu config list` to list all of your profile configs
@@ -57,7 +61,8 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Everything!
 
-[Unreleased]: https://github.com/nickjj/bmsu/compare/0.3.2...HEAD
+[Unreleased]: https://github.com/nickjj/bmsu/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/nickjj/bmsu/compare/0.3.2...0.4.0
 [0.3.2]: https://github.com/nickjj/bmsu/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/nickjj/bmsu/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/nickjj/bmsu/compare/0.2.0...0.3.0
