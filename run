@@ -46,7 +46,7 @@ quality() {
 }
 
 release() {
-  # Update a few files with a new release version and tag a release.
+  # Update a few files with a new release version and tag a release
   local repo_name="nickjj/bmsu"
   local version_regex="[0-9]+\.[0-9]+\.[0-9]+"
   local source_files=("src/bmsu")
@@ -129,11 +129,14 @@ release() {
   printf "\n---\n\nIf everything looks good, push it with: git push origin main --tags\n"
 }
 
-ci:test() {
-  # Execute Continuous Integration (CI) pipeline
+ci:quality() {
+  # Linting and formatting
   lint
   format --check --diff
+}
 
+ci:test() {
+  # Run the full test suite
   DEBUG_TESTS=1 tests/integration
 }
 

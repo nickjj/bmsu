@@ -21,6 +21,10 @@ jobs:
       - name: "Fetch tags (used in tests)"
         run: git fetch --prune --unshallow --tags
 
-      - name: "Linting and testing"
+      - name: "Linting and formatting"
+        run: |
+          ./run ci:quality
+
+      - name: "Tests"
         run: |
           ./run ci:test
