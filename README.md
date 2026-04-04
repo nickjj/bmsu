@@ -16,6 +16,9 @@ will make it easy for you to start backing up your important files.
 **If you already know and use rsync**, that's great because there's no new API
 to learn and no leaky abstractions if you want to do custom rsync things.
 
+*In any case, in 3 lines of configuration you'll be all set to backup and
+restore with lots of flexibility.*
+
 ## 🧠 Why Not Use rsync Directly?
 
 You can but what if you:
@@ -39,9 +42,6 @@ we can do better, both to remove duplication and add safety.
 - Confirm your source paths don't contain the destination path and vice versa
 - Confirm trailing slashes are consistent (rsync treats this differently)
 - Confirm your restore path is safe with the combo of rsync flags being used
-
-*You get all of these wins for free, with 3 lines of configuration you'll be
-all set to backup AND restore.*
 
 ## 🪄 Does It Work?!?
 
@@ -200,18 +200,6 @@ DEBUG=1 bmsu
 # of everything in a zero risk way. Debug mode will output this automatically.
 bmsu config
 
-# Show the default profile config for your downloaded version of bmsu, this could
-# be helpful in case future updates adjust the config options or you want to see
-# the defaults. If you're ever missing a config item, bmsu will let you know too.
-bmsu config example
-
-# Show a diff of your config vs the default config, this could be helpful to
-# compare any changes you've made in case you want to see the defaults.
-bmsu config diff
-
-# Quick access to edit your profile's config file.
-bmsu config edit
-
 # If you have more than 1 backup profile, pass it to the BMSU_PROFILE= env var.
 #
 # This could be handy if you have a few files you want backed up to target A and
@@ -246,6 +234,34 @@ bmsu config --dry-run
 # A quick tip for restoring from a backup, but avoid clobbering newer files
 # that exist on your source system.
 bmsu restore --update
+```
+
+Quality of life commands to manage your profile configs:
+
+```sh
+# List all of your profile configs.
+bmsu config list
+
+# Show your profile's config, supports BMSU_PROFILE.
+bmsu config show
+
+# Show the default profile config for your downloaded version of bmsu, this could
+# be helpful in case future updates adjust the config options or you want to see
+# the defaults. If you're ever missing a config item, bmsu will let you know too.
+bmsu config show example
+
+# Show a diff of your profile config vs the example config, this could be helpful
+# to compare any changes you've made. Supports BMSU_PROFILE.
+bmsu config diff
+
+# Edit your profile's config, supports BMSU_PROFILE.
+bmsu config edit
+
+# Create a new profile config and then edit it.
+bmsu config new PROFILE_NAME
+
+# Delete your profile's config (with confirmation), supports BMSU_PROFILE.
+bmsu config delete
 ```
 
 ## 🤝 Feedback and Code Contributions

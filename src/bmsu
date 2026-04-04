@@ -176,10 +176,10 @@ multiple devices (desktop, laptop, phone, etc.) the default is all you need.
 
 All profiles are saved in: ${CONFIG_DIR}
 
-This script will never edit your profiles, if any configuration options change
-then bmsu will let you know when you try to run a backup or restore.
+This script will never auto-edit your profiles, if any configuration options
+change then bmsu will let you know when you try to run a backup or restore.
 
-See https://github.com/nickjj/bmsu for details and to report issues.
+See https://github.com/nickjj/bmsu for documentation and to report issues.
 
 -------------------------------------------------------------------------------
 EXAMPLES
@@ -197,20 +197,36 @@ DEBUG=1 ${SCRIPT_NAME}
 # Instead of performing a backup, output your profile's config being used.
 ${SCRIPT_NAME} config
 
-# Show the default profile config for your downloaded version of bmsu.
-${SCRIPT_NAME} config example
-
-# Diff your config vs the default profile config.
-${SCRIPT_NAME} config diff
-
-# Quick access to edit your profile's config file.
-${SCRIPT_NAME} config edit
-
 # Use a different profile other than the default.
 BMSU_PROFILE=laptop ${SCRIPT_NAME}
 
 # Perform a restore but avoid clobbering newer files that exist on your source system.
 ${SCRIPT_NAME} restore --update
+
+-------------------------------------------------------------------------------
+CONFIG MANAGEMENT
+-------------------------------------------------------------------------------
+
+# List all of your profile configs.
+bmsu config list
+
+# Show your profile's config, supports BMSU_PROFILE.
+bmsu config show
+
+# Show the default profile config for your downloaded version of bmsu.
+${SCRIPT_NAME} config show example
+
+# Diff your profile config vs the example profile config. Supports BMSU_PROFILE.
+${SCRIPT_NAME} config diff
+
+# Edit your profile's config, supports BMSU_PROFILE.
+${SCRIPT_NAME} config edit
+
+# Create a new profile config and then edit it.
+bmsu config new PROFILE_NAME
+
+# Delete your profile's config, supports BMSU_PROFILE.
+bmsu config delete
 EOF
 
   exit
@@ -239,6 +255,9 @@ EOF
   exit
 }
 
+# -----------------------------------------------------------------------------
+# Config commands
+# -----------------------------------------------------------------------------
 show_config() {
   cat <<EOF
 -------------------------------------------------------------------------------
@@ -285,18 +304,66 @@ EOF
   echo
 }
 
-show_config_example() {
-  # We live the good life, let's try and see if bat is available first.
-  if command -v bat >/dev/null 2>&1; then
-    bat --paging=never --style=plain <<<"${CONFIG_DEFAULT}"
+config_list() {
+  printf "Available profiles in '%s'\n\n" "${CONFIG_DIR}"
+
+  # We live the good life, let's try and see if eza is available first.
+  if command -v eza >/dev/null 2>&1; then
+    EZA_ICON_SPACING=2 eza --long --all --octal-permissions \
+      --group --group-directories-first --time-style long-iso \
+      --header --icons auto "${CONFIG_DIR}"
   else
-    cat <<<"${CONFIG_DEFAULT}"
+    # shellcheck disable=SC2012
+    ls -lAF "${CONFIG_DIR}" | sed "/^total/d"
   fi
 }
 
-show_config_diff() {
+config_show() {
+  local profile="${1:-}"
+  local content
+
+  case "${profile}" in
+  "")
+    content=$(<"${CONFIG_DIR}/${BMSU_PROFILE}")
+    ;;
+  "example")
+    content="${CONFIG_DEFAULT}"
+    ;;
+  *)
+    cat <<EOF >&2
+${C_RED}ARGUMENT${C_RESET}: only 'example' is a supported argument, aborting!
+
+If you want to view this config, run this:
+
+${SCRIPT_NAME} BMSU_PROFILE='${profile}' config
+EOF
+    exit 1
+    ;;
+  esac
+
+  # We live the good life, let's try and see if bat is available first.
+  if command -v bat >/dev/null 2>&1; then
+    bat --paging=never --style=plain <<<"${content}"
+  else
+    echo "${content}"
+  fi
+}
+
+config_diff() {
+  local profile="${1:-}"
   local default_label="default config for ${SCRIPT_NAME} ${SCRIPT_VERSION}"
   local profile_path="${CONFIG_DIR}/${BMSU_PROFILE}"
+
+  if [ -n "${profile}" ]; then
+    cat <<EOF >&2
+${C_RED}ARGUMENT${C_RESET}: no arguments are supported, aborting!
+
+If you want to diff this config, run this:
+
+${SCRIPT_NAME} BMSU_PROFILE='${profile}' config
+EOF
+    exit 1
+  fi
 
   # We live the good life, let's try and see if delta is available first.
   # Also we want nice labels and macOS' version of diff doesn't support color
@@ -310,10 +377,23 @@ show_config_diff() {
     fi
 }
 
-edit_config() {
+config_edit() {
+  local profile="${1:-}"
+
+  if [ -n "${profile}" ]; then
+    cat <<EOF >&2
+${C_RED}ARGUMENT${C_RESET}: no arguments are supported, aborting!
+
+If you want to edit this config, run this:
+
+${SCRIPT_NAME} BMSU_PROFILE='${profile}' config
+EOF
+    exit 1
+  fi
+
   if [ -z "${EDITOR:-}" ]; then
     cat <<EOF >&2
-${C_RED}EDITOR${C_RESET}: 'EDITOR' environment variable is not set.
+${C_RED}EDITOR${C_RESET}: 'EDITOR' environment variable is not set, aborting!
 
 It's a Unix convention to set it so programs know which editor to open by default.
 
@@ -352,7 +432,7 @@ EOF
 
   if ! command -v "${editor_binary}" >/dev/null 2>&1; then
     cat <<EOF >&2
-${C_RED}EDITOR${C_RESET}: 'EDITOR=${editor_binary}' was not found.
+${C_RED}EDITOR${C_RESET}: 'EDITOR=${editor_binary}' was not found, aborting!
 
 Make sure it's on available on your system path. You need it to be directly
 callable from your shell. If you can't, it's not on your path. Check your
@@ -372,6 +452,64 @@ EOF
   fi
 
   ${EDITOR} "${CONFIG_DIR}/${BMSU_PROFILE}"
+}
+
+config_new() {
+  local profile="${1:-}"
+  local profile_path="${CONFIG_DIR}/${profile}"
+
+  if [ -z "${profile}" ]; then
+    echo "${C_RED}ARGUMENT${C_RESET}: missing profile name to create, aborting!" >&2
+    exit 1
+  fi
+
+  if [ -f "${profile_path}" ]; then
+    echo "${C_RED}ARGUMENT${C_RESET}: '${profile}' already exists, aborting!" >&2
+    exit 1
+  fi
+
+  echo "${CONFIG_DEFAULT}" >"${profile_path}"
+
+  BMSU_PROFILE="${profile}" config_edit
+}
+
+config_delete() {
+  local profile="${1:-}"
+  local profile_path="${CONFIG_DIR}/${BMSU_PROFILE}"
+
+  if [ -n "${profile}" ]; then
+    cat <<EOF >&2
+${C_RED}ARGUMENT${C_RESET}: no arguments are supported, aborting!
+
+If you want to delete this config, run this:
+
+${SCRIPT_NAME} BMSU_PROFILE='${profile}' config
+EOF
+    exit 1
+  fi
+
+  show_config
+
+  echo "Config path: ${profile_path}"
+
+  printf "\nAre you sure you want to delete the above config? (y/n) "
+  read -r yn
+  if [[ ! ${yn} =~ ^[Yy]$ ]]; then
+    printf "\nYou've chosen not to delete it, aborting!\n" >&2
+    exit 1
+  fi
+
+  if [ ! -f "${profile_path}" ]; then
+    cat <<EOF >&2
+${C_RED}ARGUMENT${C_RESET}: '${profile_path}' does not exist, aborting!
+
+Check your path for typos.
+
+EOF
+    exit 1
+  fi
+
+  rm -f "${profile_path}"
 }
 
 create_default_profile
@@ -396,13 +534,8 @@ ${C_RED}BMSU_PROFILE${C_RESET}: '${BMSU_PROFILE}' does not exist, aborting!
 
 If you want this profile to exist, create it at: ${CONFIG_DIR}/${BMSU_PROFILE}
 
-Available profiles:
-
-$(
-      result=$(find "${CONFIG_DIR}" -type f | sort)
-      echo "${result:-Only the default exists, avoid setting BMSU_PROFILE}"
-    )
 EOF
+    config_list
 
     exit 1
   fi
@@ -610,9 +743,12 @@ merge_rsync_opts() {
   if [[ "${rsync_opts_from_args[0]:-}" =~ ^(config|restore)$ ]]; then
     rsync_opts_from_args=("${rsync_opts_from_args[@]:1}")
 
-    [ "${rsync_opts_from_args[0]:-}" == "example" ] && show_config_example && exit
-    [ "${rsync_opts_from_args[0]:-}" == "diff" ] && show_config_diff && exit
-    [ "${rsync_opts_from_args[0]:-}" == "edit" ] && edit_config && exit
+    [ "${rsync_opts_from_args[0]:-}" == "list" ] && config_list && exit
+    [ "${rsync_opts_from_args[0]:-}" == "show" ] && config_show "${rsync_opts_from_args[1]:-}" && exit
+    [ "${rsync_opts_from_args[0]:-}" == "diff" ] && config_diff "${rsync_opts_from_args[1]:-}" && exit
+    [ "${rsync_opts_from_args[0]:-}" == "new" ] && config_new "${rsync_opts_from_args[1]:-}" && exit
+    [ "${rsync_opts_from_args[0]:-}" == "edit" ] && config_edit "${rsync_opts_from_args[1]:-}" && exit
+    [ "${rsync_opts_from_args[0]:-}" == "delete" ] && config_delete "${rsync_opts_from_args[1]:-}" && exit
   fi
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")

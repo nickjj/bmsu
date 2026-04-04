@@ -7,7 +7,19 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Added
+
+- `bmsu config list` to list all of your profile configs
+- `bmsu config show` to show your profile's config
+- `bmsu config show example` to show the default config that comes with bsmu
+- `bmsu config diff` to show a diff of your profile config vs the example config
+- `bmsu config edit` to edit your profile's config
+- `bmsu config new [profile]` to create a new a new profile config
+- `bmsu config deletw` to delete your profile's config
+
+### Removed
+
+- `bmsu config example` which has been replaced with `bmsu config show example`
 
 ## [0.3.2] - 2026-04-03
 

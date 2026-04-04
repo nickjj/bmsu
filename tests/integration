@@ -151,15 +151,39 @@ assert_output "BMSU_PROFILE: ${TEST_PROFILE_NAME}" "${BMSU}" config
 edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"--hello\" \"--relative\")|"
 assert_output "BMSU_DEFAULT_RSYNC_OPTS:\s*\n  \[0\] --hello" "${BMSU}" config
 
-assert_output "DEBUG=" "${BMSU}" config example
+assert_output "Available profiles in " "${BMSU}" config list
+
+assert_output "only 'example' is a supported argument" "${BMSU}" config show nope
+
+assert_output "no arguments are supported" "${BMSU}" config diff nope
+
+assert_output "no arguments are supported" "${BMSU}" config edit nope
+
+assert_output "no arguments are supported" "${BMSU}" config delete nope
+
+assert_output "DEBUG=" env BMSU_PROFILE= "${BMSU}" config show
+
+assert_output "DEBUG=" "${BMSU}" config show example
 
 assert_output "default config for bmsu" "${BMSU}" config diff
 
-assert_output "'EDITOR' environment variable is not set" env EDITOR= "${BMSU}" config edit
+assert_output "'EDITOR' environment variable is not set" env EDITOR="" "${BMSU}" config edit
 
 assert_output "'EDITOR=no-way-this-binary-exists' was not found" env EDITOR="no-way-this-binary-exists --wait" "${BMSU}" config edit
 
-assert_output "DEBUG=" env EDITOR=cat "${BMSU}" config edit
+assert_output "DEBUG=" env EDITOR="cat" "${BMSU}" config edit
+
+assert_output "missing profile name to create" env EDITOR="" "${BMSU}" config new
+
+assert_output "DEBUG=" env EDITOR="cat" "${BMSU}" config new "${INVALID_PATH}"
+
+assert_output "'${INVALID_PATH}' already exists" env EDITOR="cat" "${BMSU}" config new "${INVALID_PATH}"
+
+echo "n" | assert_output "chosen not to delete" env BMSU_PROFILE="${INVALID_PATH}" "${BMSU}" config delete
+
+echo "y" | assert_output "${TEST_PROFILE/${TEST_PROFILE_NAME}/${INVALID_PATH}}" env BMSU_PROFILE="${INVALID_PATH}" "${BMSU}" config delete
+
+echo "y" | assert_output "'${INVALID_PATH}' does not exist" env BMSU_PROFILE="${INVALID_PATH}" "${BMSU}" config delete
 
 edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS=(\"-\")|"
 assert_output "RSYNC_OPTIONS: '-' must start with" "${BMSU}"
