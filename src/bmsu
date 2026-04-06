@@ -967,7 +967,9 @@ BMSU_REMOTE_DESTINATION=
 validate_destination() {
   _validate_config_presence "BMSU_DESTINATION"
   _validate_config_string "BMSU_DESTINATION"
-  _validate_no_ending_forward_slash "BMSU_DESTINATION"
+
+  # We'll allow "/" by itself or ":/" to support both root local and remote paths.
+  [[ "${BMSU_DESTINATION#*:}" != "/" ]] && _validate_no_ending_forward_slash "BMSU_DESTINATION"
 
   # It's a remote path, not a mount.
   if [ "${BMSU_DESTINATION_REMOTE}" == "1" ]; then

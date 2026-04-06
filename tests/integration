@@ -223,6 +223,12 @@ assert_output "BMSU_EXCLUDE_PATTERNS:\s*\n\n" "${BMSU}" config
 edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}/and/with/extra/paths/\"|"
 assert_output "BMSU_DESTINATION: '${TMP_DIR}/and/with/extra/paths/' cannot end with a forward slash" "${BMSU}"
 
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"/\"|"
+assert_output "BMSU_DESTINATION: '/' has no valid external mount" "${BMSU}"
+
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\":/\"|"
+assert_output "BMSU_DESTINATION: ':/' is missing at least a hostname" "${BMSU}"
+
 edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\":~/\"|"
 assert_output "BMSU_DESTINATION: ':~/' cannot end with a forward slash" "${BMSU}"
 

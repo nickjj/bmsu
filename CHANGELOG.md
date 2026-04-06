@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Fixed
+
+- Allow `/` as a `BMSU_DESTINATION` (handy for remote backups)
 
 ## [0.4.1] - 2026-04-04
 
