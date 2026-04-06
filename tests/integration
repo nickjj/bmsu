@@ -134,7 +134,7 @@ assert_output "EXAMPLES" "${BMSU}" --help
 
 assert_output "${BMSU_LATEST_GIT_TAG}" "${BMSU}" --version
 
-assert_output ": ${BMSU_LATEST_GIT_TAG}" env BMSU_TEST_VALUE="0.4.0" "${BMSU}" --version-latest
+assert_output ": ${BMSU_LATEST_GIT_TAG}" env BMSU_TEST_VALUE="${BMSU_LATEST_GIT_TAG}" "${BMSU}" --version-latest
 
 assert_output ": Connection timed out" env BMSU_TEST_VALUE="curl: Connection timed out" "${BMSU}" --version-latest
 
