@@ -7,6 +7,10 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Better support for remote `BMSU_SOURCES` and / or `BMSU_DESTINATION`
+
 ### Fixed
 
 - Allow `/` as a `BMSU_DESTINATION` (handy for remote backups)

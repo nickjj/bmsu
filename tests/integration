@@ -281,3 +281,36 @@ assert_output "BMSU_RESTORE_PATH: 'tmp' must be an absolute" "${BMSU}" restore
 
 edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/${INVALID_PATH}\"|"
 assert_output "BMSU_RESTORE_PATH: '/${INVALID_PATH}' does not exist" "${BMSU}" restore
+
+# Add DEBUG=1 so we can go as far as we can without really running rsync.
+export DEBUG=1
+
+edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/\"|"
+echo "n" | assert_output "  /dev/shm/./var" "${BMSU}" restore
+
+edit_config \
+  "s|^export BMSU_SOURCES=.*|export BMSU_SOURCES=(\"/var\")|" \
+  "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|" \
+  "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}\"|"
+echo "n" | assert_output " /dev/shm" "${BMSU}" restore
+
+edit_config \
+  "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:${TMP_DIR}\"|" \
+  "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}\"|"
+echo "n" | assert_output "  localhost:/./var" "${BMSU}" restore
+
+echo "n" | assert_output "  --delete-missing-args.*localhost" "${BMSU}" restore --delete
+
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"/\"|"
+echo "n" | assert_output "--no-implied-dirs" "${BMSU}"
+
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:/\"|"
+echo "n" | assert_output "  --no-implied-dirs.*  localhost:/" "${BMSU}"
+
+edit_config \
+  "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:${TMP_DIR}\"|" \
+  "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}\"|"
+echo "n" | assert_output "  /var.*  localhost:/dev/shm.*WARNING:" "${BMSU}"
+
+edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"${TMP_DIR}\"|"
+echo "n" | assert_output "  /var.*  /dev/shm" "${BMSU}"

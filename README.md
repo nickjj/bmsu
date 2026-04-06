@@ -184,6 +184,85 @@ export BMSU_EXCLUDE_PATTERNS_SKIP=()
 export BMSU_RESTORE_PATH=
 ```
 
+### Use case examples
+
+Here's a condensed version of a few profiles I use for different things:
+
+##### Desktop to external drive (mount)
+
+- `bmsu`
+    - Sync `BMSU_SOURCES` to `BMSU_DESTINATION`
+    - Adding the `--delete` flag would delete files in `BMSU_DESTINATION` that don't exist in `BMSU_SOURCES`
+- `bmsu restore`
+    - Sync `BMSU_DESTINATION` to `BMSU_SOURCES` using `BMSU_RESTORE_PATH` to start the paths
+        - Yields paths like `${HOME}/src` and `/data/storage/docs` on the main PC
+
+```sh
+# ~/.config/bmsu/default
+
+export BMSU_DESTINATION="/data/backup/desktop"
+
+export BMSU_SOURCES=(
+  "${HOME}/.config"
+  "${HOME}/.docker/config.json"
+  "${HOME}/.ssh"
+  "${HOME}/src"
+  "/data/storage/docs"
+  "/data/storage/games/backups"
+  "/data/storage/media"
+)
+
+export BMSU_RESTORE_PATH="/"
+```
+
+*If your `BMSU_DESTINATION` or `BMSU_RESTORE_PATH` is ever `/` (root path) and
+you're running `bmsu` as a non-root user, permission issues are bypassed by
+automatically using rsync's `--no-implied-dirs` flag.*
+
+##### Desktop to laptop (remote)
+
+- `BMSU_PROFILE=laptop bmsu`
+    - Sync `BMSU_SOURCES` to `BMSU_DESTINATION` at the configured paths
+    - Adding the `--delete` flag is the same as the above use case
+- `BMSU_PROFILE=laptop bmsu restore`
+    - Same as the above use case
+
+For extra context on both machines I have the same username so `${HOME}` can be
+used.
+
+```sh
+# ~/.config/bmsu/laptop
+
+# This assumes you've set up SSH key based authentication between the 2 machines.
+# As in generating an SSH key on your desktop and putting its public key on the
+# laptop in `~/.ssh/authorized_keys` and you're running sshd.
+export BMSU_DESTINATION="192.168.50.213:/"
+
+export BMSU_SOURCES=(
+  "${HOME}/src"
+)
+
+export BMSU_RESTORE_PATH="/"
+```
+
+If you had different usernames that's fine you can do this instead:
+
+```sh
+# ~/.config/bmsu/laptop
+
+export BMSU_DESTINATION="someuser@192.168.50.213:/home/someuser"
+
+export BMSU_SOURCES=(
+  "${HOME}/./src"
+)
+
+export BMSU_RESTORE_PATH="${HOME}"
+```
+
+This takes advantage of rsync's `/./` path to keep only the directory structure
+after this special path, this script is set up to auto-adjust that as needed.
+Using `/./` isn't limited to remote destinations.
+
 ## 🚀 Usage
 
 Here's a few ways to use this script:

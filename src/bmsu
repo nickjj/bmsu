@@ -820,6 +820,12 @@ _validate_path_exists() {
   local variable_name="${1}"
   local -n variable_reference="${variable_name}"
 
+  if [ "${2:-}" ]; then
+    local variable_reference="${2}"
+  else
+    local -n variable_reference="${variable_name}"
+  fi
+
   cat <<EOF >&2
 ${C_RED}${variable_name}${C_RESET}: '${variable_reference}' does not exist, aborting!
 
@@ -854,6 +860,22 @@ merge_rsync_opts() {
   fi
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")
+
+  # Special cases when the destination path (local or remote) is "/". Only add
+  # this when not running as root. If you try to do this as a regular user
+  # you'll get permission errors from rsync anyways since it can't set the
+  # mtime of root owned parent directories.
+  if [[ "${BMSU_DESTINATION#*:}" == "/" && "${EUID}" != "0" ]]; then
+    default_rsync_opts+=("--no-implied-dirs")
+  fi
+
+  # If sources are files instead of directories, ensure they get deleted too.
+  # We don't want this when backing up.
+  if [ "${RESTORE}" == "1" ]; then
+    if [[ " ${default_rsync_opts[*]} " == *" --delete"* || " ${default_rsync_opts[*]} " == *" --del "* ]]; then
+      default_rsync_opts+=("--delete-missing-args")
+    fi
+  fi
 
   # Check to make sure all args (config and from the CLI) are flags, also
   # promote good habits by using the long form flag and = for values.
@@ -936,6 +958,10 @@ merge_exclude_patterns() {
 
   exclude_patterns=("${exclude_patterns_filterd[@]}")
 }
+
+# This must happen before we merge because there's logic dependent on this.
+RESTORE=
+[ "${1:-}" == "restore" ] && RESTORE=1
 
 merge_rsync_opts "BMSU_DEFAULT_RSYNC_OPTS" "${@}"
 merge_exclude_patterns "BMSU_EXCLUDE_PATTERNS" "BMSU_EXCLUDE_PATTERNS_EXTRAS" "BMSU_EXCLUDE_PATTERNS_SKIP"
@@ -1071,7 +1097,7 @@ validate_sources() {
   _validate_config_presence "BMSU_SOURCES"
   _validate_config_array "BMSU_SOURCES"
 
-  [ "${BMSU_DESTINATION_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE=$(realpath "${BMSU_DESTINATION}")
+  [ "${BMSU_DESTINATION_REMOTE}" != "1" ] && BMSU_DESTINATION_ABSOLUTE="$(realpath "${BMSU_DESTINATION//\/\.\//\/}")"
 
   for item in "${BMSU_SOURCES[@]}"; do
     # Support expanding ~ to home.
@@ -1082,30 +1108,36 @@ validate_sources() {
     _validate_no_ending_forward_slash "BMSU_SOURCES" "${item}"
     _validate_absolute_path "BMSU_SOURCES" "${item}"
 
-    [[ ! -d "${item}" && ! -f "${item}" ]] && _validate_path_exists "BMSU_SOURCES"
+    # Only validate these paths when not restoring, since they are locally checked.
+    if [ "${RESTORE}" != "1" ]; then
+      # rsync supports /:/ paths but we shouldn't include that when validating.
+      local clean_item="${item//\/\.\//\/}"
 
-    if [ ! -r "${item}" ]; then
-      echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is not readable by '${USER}', aborting!" >&2
-      exit 1
-    fi
+      [[ ! -d "${clean_item}" && ! -f "${clean_item}" ]] && _validate_path_exists "BMSU_SOURCES" "${item}"
 
-    # We can only run these tests for local or network mounts, not a remote path.
-    if [ "${BMSU_DESTINATION_REMOTE}" != "1" ]; then
-      BMSU_SOURCE_ABSOLUTE=$(realpath "${item}")
-
-      if [ "${BMSU_SOURCE_ABSOLUTE}" == "${BMSU_DESTINATION_ABSOLUTE}" ]; then
-        echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is identical to BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
+      if [ ! -r "${clean_item}" ]; then
+        echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is not readable by '${USER}', aborting!" >&2
         exit 1
       fi
 
-      if [[ "${BMSU_DESTINATION_ABSOLUTE}" == "${BMSU_SOURCE_ABSOLUTE}/"* ]]; then
-        echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is a parent of BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
-        exit 1
-      fi
+      # We can only run these tests for local or network mounts, not a remote path.
+      if [ "${BMSU_DESTINATION_REMOTE}" != "1" ]; then
+        BMSU_SOURCE_ABSOLUTE=$(realpath "${clean_item}")
 
-      if [[ "${BMSU_SOURCE_ABSOLUTE}" == "${BMSU_DESTINATION_ABSOLUTE}/"* ]]; then
-        echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is inside BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
-        exit 1
+        if [ "${BMSU_SOURCE_ABSOLUTE}" == "${BMSU_DESTINATION_ABSOLUTE}" ]; then
+          echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is identical to BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
+          exit 1
+        fi
+
+        if [[ "${BMSU_DESTINATION_ABSOLUTE}" == "${BMSU_SOURCE_ABSOLUTE}/"* ]]; then
+          echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is a parent of BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
+          exit 1
+        fi
+
+        if [[ "${BMSU_SOURCE_ABSOLUTE}" == "${BMSU_DESTINATION_ABSOLUTE}/"* ]]; then
+          echo "${C_RED}BMSU_SOURCES${C_RESET}: '${item}' is inside BMSU_DESTINATION='${BMSU_DESTINATION}', aborting!" >&2
+          exit 1
+        fi
       fi
     fi
 
@@ -1116,11 +1148,10 @@ validate_sources() {
 # -----------------------------------------------------------------------------
 # Validate and prepare restore path
 # -----------------------------------------------------------------------------
-validate_and_prepare_restore_path() {
-  local args=("${@}")
 
+validate_and_prepare_restore_path() {
   # Skip doing anything when we're not restoring.
-  [ "${args[0]:-}" != "restore" ] && return
+  [ "${RESTORE}" != "1" ] && return
 
   _validate_config_presence "BMSU_RESTORE_PATH"
   _validate_config_string "BMSU_RESTORE_PATH"
@@ -1139,6 +1170,9 @@ validate_and_prepare_restore_path() {
   # We always want debug mode enabled for restoring.
   DEBUG=1
 
+  local clean_sources=("${BMSU_SOURCES[@]//\/\.\//\/}")
+  clean_sources=("${clean_sources[@]//\/\:\//\/}")
+
   # Prepend the configured destination path to each source path and add /./ in
   # in between them so rsync doesn't restore the destination path itself.
   #
@@ -1148,10 +1182,19 @@ validate_and_prepare_restore_path() {
   #   BMSU_RESTORE_PATH="/tmp"
   #
   # Produces a new source path of: /data/backup/desktop/./home/nick/src
-  # In which case, rsync will restore to /tmp//home/nick/src.
+  # In which case, rsync will restore to /tmp/home/nick/src.
   #
   # If ./ wasn't used, rsync would restore to /tmp/data/backup/desktop/home/nick/src.
-  BMSU_RSYNC_SOURCES_FLAGS=("${BMSU_SOURCES[@]/#/${BMSU_DESTINATION}/.}")
+  #
+  # The code below is doing the above except it accounts for remote or local paths.
+  if [ "${BMSU_DESTINATION_REMOTE}" == "1" ]; then
+    # Extract and prepend the host.
+    local remote_host="${BMSU_DESTINATION%%:*}"
+    BMSU_RSYNC_SOURCES_FLAGS=("${clean_sources[@]/#\//${remote_host}:\/.\/}")
+  else
+    BMSU_RSYNC_SOURCES_FLAGS=("${clean_sources[@]/#\//${BMSU_DESTINATION}\/.\/}")
+  fi
+
   BMSU_DESTINATION="${BMSU_RESTORE_PATH}"
 }
 
@@ -1193,6 +1236,29 @@ EOF
     printf "%b \\\\\n" "${arg}"
   done | sed -e "1b" -e "s/^/  /" -e '$ s/ \\$//'
 
+  # This wouldn't be catastrophic but it's a potentially common issue to
+  # bring attention to, if anything to avoid surprises and nested paths.
+  if [[ "${BMSU_DESTINATION_REMOTE}" == "1" && "${RESTORE}" != "1" && "${BMSU_DESTINATION#*:}" != "/" ]]; then
+    for item in "${BMSU_SOURCES[@]}"; do
+      if [[ "${item}" != "${HOME}"* ]]; then
+        local dest_path="${BMSU_DESTINATION#*:}"
+        local suggested_dest_path="${BMSU_DESTINATION%%:*}:/"
+
+        readonly C_WHITE=$'\e[1;37;1m'
+
+        cat <<EOF >&2
+
+${C_WHITE}WARNING${C_RESET}:
+Backing up ${C_GREEN}BMSU_SOURCES=${item}${C_RESET} into a remote ${C_MAGENTA}BMSU_DESTINATION${C_RESET} that is not '/'.
+Your command will work but you'll end up with '${item}' nested in '${dest_path}'.
+If you want symmetric paths set ${C_MAGENTA}BMSU_DESTINATION=${suggested_dest_path}${C_RESET} instead.
+EOF
+
+        break
+      fi
+    done
+  fi
+
   while true; do
     printf "\nTo run the above command, type 'y' and press enter (y/n) "
     read -r yn
@@ -1218,7 +1284,7 @@ EOF
 validate_destination
 validate_exclude_patterns
 validate_sources
-validate_and_prepare_restore_path "${@}"
+validate_and_prepare_restore_path
 prepare_rsync_command
 [ "${DEBUG}" == "1" ] && print_debug_info
 
