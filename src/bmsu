@@ -16,6 +16,7 @@ readonly C_YELLOW=$'\e[1;33;1m'
 readonly C_BLUE=$'\e[1;34;1m'
 readonly C_MAGENTA=$'\e[1;35;1m'
 readonly C_CYAN=$'\e[1;36;1m'
+readonly C_WHITE=$'\e[1;37;1m'
 readonly C_RESET=$'\e[0m'
 
 CONFIG_DEBUG="$(
@@ -1243,8 +1244,6 @@ EOF
       if [[ "${item}" != "${HOME}"* ]]; then
         local dest_path="${BMSU_DESTINATION#*:}"
         local suggested_dest_path="${BMSU_DESTINATION%%:*}:/"
-
-        readonly C_WHITE=$'\e[1;37;1m'
 
         cat <<EOF >&2
 
