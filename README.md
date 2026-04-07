@@ -31,7 +31,7 @@ You'll find yourself running really long `rsync` commands with lots of source
 paths and `--exclude=` patterns. You can create a function alias for this but
 we can do better, both to remove duplication and add safety.
 
-#### Since we're focused on backups, we can add a few quality of life features:
+#### We can add a few quality of life features:
 
 - Abstract source paths, destination, exclude patterns and more into a config file
 - Make sure the destination path is mounted if it's a mount path
@@ -195,7 +195,7 @@ Here's a condensed version of a few profiles I use for different things:
     - Adding the `--delete` flag would delete files in `BMSU_DESTINATION` that don't exist in `BMSU_SOURCES`
 - `bmsu restore`
     - Sync `BMSU_DESTINATION` to `BMSU_SOURCES` using `BMSU_RESTORE_PATH` to start the paths
-        - Yields paths like `${HOME}/src` and `/data/storage/docs` on the main PC
+        - Yields paths like `${HOME}/src` and `/data/storage/docs` on the desktop
 
 ```sh
 # ~/.config/bmsu/default
