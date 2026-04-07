@@ -37,9 +37,25 @@ CONFIG_BMSU_DEFAULT_RSYNC_OPTS="$(
 # - Remove () and set an empty value OR "" -> no options will get set
 # - Add your own array items               -> only your options get used
 #
-# For example, if you don't like verbose mode you can set this:
-#   BMSU_DEFAULT_RSYNC_OPTS=("--archive" "--relative")
+# Both the "extras" and "skip" variables let you modify the internal defaults
+# without needing to redefine every option.
 export BMSU_DEFAULT_RSYNC_OPTS=()
+EOF
+)"
+
+CONFIG_BMSU_DEFAULT_RSYNC_OPTS_EXTRAS="$(
+  cat <<EOF
+# Append to the default options.
+
+export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=()
+EOF
+)"
+
+CONFIG_BMSU_DEFAULT_RSYNC_OPTS_SKIP="$(
+  cat <<EOF
+# Remove items from the default options.
+
+export BMSU_DEFAULT_RSYNC_OPTS_SKIP=()
 EOF
 )"
 
@@ -84,7 +100,8 @@ CONFIG_BMSU_EXCLUDE_PATTERNS="$(
 # cache, temporary and other generated files that exist in your source paths.
 #
 # All 3 variables below follow the same rules as BMSU_DEFAULT_RSYNC_OPTS for
-# setting their values (keep it as is, empty or add in your own custom values).
+# setting their values (keep it as is, empty or add in your own custom values)
+# and how appending or removing items works.
 #
 # Unless you have a strong reason you'll probably only end up setting EXTRAS,
 # in which case please open a PR if they're semi-general purpose patterns!
@@ -134,6 +151,10 @@ CONFIG_DEFAULT="$(
 ${CONFIG_DEBUG}
 
 ${CONFIG_BMSU_DEFAULT_RSYNC_OPTS}
+
+${CONFIG_BMSU_DEFAULT_RSYNC_OPTS_EXTRAS}
+
+${CONFIG_BMSU_DEFAULT_RSYNC_OPTS_SKIP}
 
 ${CONFIG_BMSU_DESTINATION}
 
@@ -373,7 +394,7 @@ EOF
     local color=
 
     case "${var}" in
-    "BMSU_DEFAULT_RSYNC_OPTS")
+    "BMSU_DEFAULT_RSYNC_OPTS" | "BMSU_DEFAULT_RSYNC_OPTS_EXTRAS" | "BMSU_DEFAULT_RSYNC_OPTS_SKIP")
       color="${C_CYAN}"
       ;;
     "BMSU_DESTINATION" | "BMSU_RESTORE_PATH")
@@ -657,6 +678,18 @@ else
   )
 fi
 
+if [[ "${BMSU_DEFAULT_RSYNC_OPTS_EXTRAS+x}" ]]; then
+  [ -z "${BMSU_DEFAULT_RSYNC_OPTS_EXTRAS}" ] && BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=()
+else
+  BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=()
+fi
+
+if [[ "${BMSU_DEFAULT_RSYNC_OPTS_SKIP+x}" ]]; then
+  [ -z "${BMSU_DEFAULT_RSYNC_OPTS_SKIP}" ] && BMSU_DEFAULT_RSYNC_OPTS_SKIP=()
+else
+  BMSU_DEFAULT_RSYNC_OPTS_SKIP=()
+fi
+
 BMSU_DESTINATION="${BMSU_DESTINATION:-}"
 
 if [[ "${BMSU_SOURCES+x}" ]]; then
@@ -843,8 +876,11 @@ EOF
 # -----------------------------------------------------------------------------
 merge_rsync_opts() {
   local -n default_rsync_opts="${1}"
+  local -n default_rsync_opts_extras="${2}"
+  local -n default_rsync_opts_skip="${3}"
+  local default_rsync_opts_filterd=()
 
-  shift
+  shift 3
 
   local rsync_opts_from_args=("${@}")
 
@@ -859,6 +895,21 @@ merge_rsync_opts() {
     [ "${rsync_opts_from_args[0]:-}" == "edit" ] && config_edit "${rsync_opts_from_args[1]:-}" && exit
     [ "${rsync_opts_from_args[0]:-}" == "delete" ] && config_delete "${rsync_opts_from_args[1]:-}" && exit
   fi
+
+  default_rsync_opts+=("${default_rsync_opts_extras[@]}")
+
+  for opt in "${default_rsync_opts[@]}"; do
+    for skip_opt in "${default_rsync_opts_skip[@]}"; do
+      if [[ "${opt}" == "${skip_opt}" ]]; then
+        # Continue the outer loop (the next pattern).
+        continue 2
+      fi
+    done
+
+    default_rsync_opts_filterd+=("${opt}")
+  done
+
+  default_rsync_opts=("${default_rsync_opts_filterd[@]}")
 
   default_rsync_opts+=("${rsync_opts_from_args[@]}")
 
@@ -964,7 +1015,7 @@ merge_exclude_patterns() {
 RESTORE=
 [ "${1:-}" == "restore" ] && RESTORE=1
 
-merge_rsync_opts "BMSU_DEFAULT_RSYNC_OPTS" "${@}"
+merge_rsync_opts "BMSU_DEFAULT_RSYNC_OPTS" "BMSU_DEFAULT_RSYNC_OPTS_EXTRAS" "BMSU_DEFAULT_RSYNC_OPTS_SKIP" "${@}"
 merge_exclude_patterns "BMSU_EXCLUDE_PATTERNS" "BMSU_EXCLUDE_PATTERNS_EXTRAS" "BMSU_EXCLUDE_PATTERNS_SKIP"
 
 # -----------------------------------------------------------------------------

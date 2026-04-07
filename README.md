@@ -119,9 +119,15 @@ export DEBUG="${DEBUG-}"
 # - Remove () and set an empty value OR "" -> no options will get set
 # - Add your own array items               -> only your options get used
 #
-# For example, if you don't like verbose mode you can set this:
-#   BMSU_DEFAULT_RSYNC_OPTS=("--archive" "--relative")
+# Both the "extras" and "skip" variables let you modify the internal defaults
+# without needing to redefine every option.
 export BMSU_DEFAULT_RSYNC_OPTS=()
+
+# Append to the default options.
+export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=()
+
+# Remove items from the default options.
+export BMSU_DEFAULT_RSYNC_OPTS_SKIP=()
 
 # Where do you want the source paths to be sync'd to? This is your backup
 # destination. The path must not end with a forward slash.
@@ -154,7 +160,8 @@ export BMSU_SOURCES=()
 # cache, temporary and other generated files that exist in your source paths.
 #
 # All 3 variables below follow the same rules as BMSU_DEFAULT_RSYNC_OPTS for
-# setting their values (keep it as is, empty or add in your own custom values).
+# setting their values (keep it as is, empty or add in your own custom values)
+# and how appending or removing items works.
 #
 # Unless you have a strong reason you'll probably only end up setting EXTRAS,
 # in which case please open a PR if they're semi-general purpose patterns!

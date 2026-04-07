@@ -210,6 +210,17 @@ edit_config "s|^export BMSU_DEFAULT_RSYNC_OPTS=.*|export BMSU_DEFAULT_RSYNC_OPTS
 assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
 
 edit_config \
+  "s|^export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=.*|export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=(\"--yay\")|" \
+  "s|^export BMSU_DEFAULT_RSYNC_OPTS_SKIP=.*|export BMSU_DEFAULT_RSYNC_OPTS_SKIP=(\"--archive\")|"
+assert_output "BMSU_DEFAULT_RSYNC_OPTS_EXTRAS:\n  \[\d\] --yay" "${BMSU}" config
+assert_no_output "BMSU_DEFAULT_RSYNC_OPTS:\n  \[0] \--archive" "${BMSU}" config
+
+edit_config \
+  "s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=()|" \
+  "s|^export BMSU_EXCLUDE_PATTERNS=.*|export BMSU_EXCLUDE_PATTERNS=|"
+assert_output "BMSU_EXCLUDE_PATTERNS:\s*\n\n" "${BMSU}" config
+
+edit_config \
   "s|^export BMSU_EXCLUDE_PATTERNS_EXTRAS=.*|export BMSU_EXCLUDE_PATTERNS_EXTRAS=(\"cool\")|" \
   "s|^export BMSU_EXCLUDE_PATTERNS_SKIP=.*|export BMSU_EXCLUDE_PATTERNS_SKIP=(\"*~\")|"
 assert_output "BMSU_EXCLUDE_PATTERNS_EXTRAS:\n  \[\d\] cool" "${BMSU}" config

@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Added
+
+- `BMSU_DEFAULT_RSYNC_OPTS_EXTRAS` and `BMSU_DEFAULT_RSYNC_OPTS_SKIP` config options
 
 ## [0.5.0] - 2026-04-06
 
