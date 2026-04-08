@@ -268,6 +268,8 @@ export BMSU_SOURCES=(
 export BMSU_RESTORE_PATH="/"
 ```
 
+Here's the rsync paths it will produce:
+
 ```sh
 $ bmsu
 
@@ -323,7 +325,7 @@ rsync \
 #### Desktop to phone (remote)
 
 ```sh
-# ~/.config/bmsu/phon
+# ~/.config/bmsu/phone
 
 export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=(
   "--rsh='ssh -p 8022'"
