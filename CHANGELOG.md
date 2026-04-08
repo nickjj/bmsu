@@ -17,7 +17,7 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Restore logic when `BMSU_SOURCES` have `/./`, now all path variants are correct
+- Restore logic when `BMSU_SOURCES` paths contain `/./`, now all path variants are correct
 
 ## [0.5.0] - 2026-04-06
 
