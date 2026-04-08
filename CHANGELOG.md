@@ -11,6 +11,10 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - `BMSU_DEFAULT_RSYNC_OPTS_EXTRAS` and `BMSU_DEFAULT_RSYNC_OPTS_SKIP` config options
 
+### Fixed
+
+- Restore logic when source paths had `/./`, now all path variants are correct
+
 ## [0.5.0] - 2026-04-06
 
 ### Added

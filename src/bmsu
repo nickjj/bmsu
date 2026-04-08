@@ -917,8 +917,10 @@ merge_rsync_opts() {
   # this when not running as root. If you try to do this as a regular user
   # you'll get permission errors from rsync anyways since it can't set the
   # mtime of root owned parent directories.
-  if [[ "${BMSU_DESTINATION#*:}" == "/" && "${EUID}" != "0" ]]; then
-    default_rsync_opts+=("--no-implied-dirs")
+  if [[ "${EUID}" != "0" ]]; then
+    local target_path="${BMSU_DESTINATION}"
+    [[ "${RESTORE}" == "1" ]] && target_path="${BMSU_RESTORE_PATH}"
+    [[ "${target_path#*:}" == "/" ]] && default_rsync_opts+=("--no-implied-dirs")
   fi
 
   # If sources are files instead of directories, ensure they get deleted too.
@@ -1222,31 +1224,22 @@ validate_and_prepare_restore_path() {
   # We always want debug mode enabled for restoring.
   DEBUG=1
 
-  local clean_sources=("${BMSU_SOURCES[@]//\/\.\//\/}")
-  clean_sources=("${clean_sources[@]//\/\:\//\/}")
+  # Reset this array since we'll rebuild it with path adjustments.
+  BMSU_RSYNC_SOURCES_FLAGS=()
 
-  # Prepend the configured destination path to each source path and add /./ in
-  # in between them so rsync doesn't restore the destination path itself.
-  #
-  # Example:
-  #   BMSU_DESTINATION="/data/backup/desktop"
-  #   BMSU_SOURCES=("${HOME}/src")
-  #   BMSU_RESTORE_PATH="/tmp"
-  #
-  # Produces a new source path of: /data/backup/desktop/./home/nick/src
-  # In which case, rsync will restore to /tmp/home/nick/src.
-  #
-  # If ./ wasn't used, rsync would restore to /tmp/data/backup/desktop/home/nick/src.
-  #
-  # The code below is doing the above except it accounts for remote or local paths.
-  if [ "${BMSU_DESTINATION_REMOTE}" == "1" ]; then
-    # Extract and prepend the host.
-    local remote_host="${BMSU_DESTINATION%%:*}"
-    BMSU_RSYNC_SOURCES_FLAGS=("${clean_sources[@]/#\//${remote_host}:\/.\/}")
-  else
-    BMSU_RSYNC_SOURCES_FLAGS=("${clean_sources[@]/#\//${BMSU_DESTINATION}\/.\/}")
-  fi
+  for source in "${BMSU_SOURCES[@]}"; do
+    # Extract the "implied" part of the path. If '/./' exists, grab everything
+    # after it. Otherwise, we strip the leading slash to treat the entire
+    # absolute path as relative to the BMSU_DESTINATION.
+    local relative_path="${source##*/./}"
+    [[ "${relative_path}" == "${source}" ]] && relative_path="${source#/}"
 
+    # Reinsert the '/./' so rsync can use it. The destination is now the source
+    # since we're restoring.
+    BMSU_RSYNC_SOURCES_FLAGS+=("${BMSU_DESTINATION%/}/./${relative_path}")
+  done
+
+  # Now let's restore to the restore path.
   BMSU_DESTINATION="${BMSU_RESTORE_PATH}"
 }
 
@@ -1292,6 +1285,10 @@ EOF
   # bring attention to, if anything to avoid surprises and nested paths.
   if [[ "${BMSU_DESTINATION_REMOTE}" == "1" && "${RESTORE}" != "1" && "${BMSU_DESTINATION#*:}" != "/" ]]; then
     for item in "${BMSU_SOURCES[@]}"; do
+      # If someone is using /./, they are controlling the path so let's skip
+      # the symmetry warning for this item.
+      [[ "${item}" == */./* ]] && continue
+
       if [[ "${item}" != "${HOME}"* ]]; then
         local dest_path="${BMSU_DESTINATION#*:}"
         local suggested_dest_path="${BMSU_DESTINATION%%:*}:/"

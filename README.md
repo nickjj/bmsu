@@ -191,18 +191,13 @@ export BMSU_EXCLUDE_PATTERNS_SKIP=()
 export BMSU_RESTORE_PATH=
 ```
 
-### Use case examples
+## 📖 Use Case Examples
 
-Here's a condensed version of a few profiles I use for different things:
+Here's a condensed version of a few profiles I use for different things. In all
+cases I only included the source and destination paths in the `rsync` command
+for brevity.
 
-##### Desktop to external drive (mount)
-
-- `bmsu`
-    - Sync `BMSU_SOURCES` to `BMSU_DESTINATION`
-    - Adding the `--delete` flag would delete files in `BMSU_DESTINATION` that don't exist in `BMSU_SOURCES`
-- `bmsu restore`
-    - Sync `BMSU_DESTINATION` to `BMSU_SOURCES` using `BMSU_RESTORE_PATH` to start the paths
-        - Yields paths like `${HOME}/src` and `/data/storage/docs` on the desktop
+#### Desktop to external drive (mount)
 
 ```sh
 # ~/.config/bmsu/default
@@ -226,16 +221,37 @@ export BMSU_RESTORE_PATH="/"
 you're running `bmsu` as a non-root user, permission issues are bypassed by
 automatically using rsync's `--no-implied-dirs` flag.*
 
-##### Desktop to laptop (remote)
+Here's the rsync paths it will produce:
 
-- `BMSU_PROFILE=laptop bmsu`
-    - Sync `BMSU_SOURCES` to `BMSU_DESTINATION` at the configured paths
-    - Adding the `--delete` flag is the same as the above use case
-- `BMSU_PROFILE=laptop bmsu restore`
-    - Same as the above use case
+```sh
+$ bmsu
 
-For extra context on both machines I have the same username so `${HOME}` can be
-used.
+rsync \
+  /home/nick/.config \
+  /home/nick/.docker/config.json \
+  /home/nick/.ssh \
+  /home/nick/src \
+  /data/storage/docs \
+  /data/storage/games/backups \
+  /data/storage/media \
+  /data/backup/desktop
+```
+
+```sh
+$ bmsu restore
+
+rsync \
+  /data/backup/desktop/./home/nick/.config \
+  /data/backup/desktop/./home/nick/.docker/config.json \
+  /data/backup/desktop/./home/nick/.ssh \
+  /data/backup/desktop/./home/nick/src \
+  /data/backup/desktop/./data/storage/docs \
+  /data/backup/desktop/./data/storage/games/backups \
+  /data/backup/desktop/./data/storage/media \
+  /
+```
+
+#### Desktop to laptop (remote)
 
 ```sh
 # ~/.config/bmsu/laptop
@@ -252,7 +268,23 @@ export BMSU_SOURCES=(
 export BMSU_RESTORE_PATH="/"
 ```
 
-If you had different usernames that's fine you can do this instead:
+```sh
+$ bmsu
+
+rsync \
+  /home/nick/src \
+  192.168.50.213:/
+```
+
+```sh
+$ bmsu restore
+
+rsync \
+  192.168.50.213:/./home/nick/src \
+  /
+```
+
+If you had different usernames that's fine, you can do this instead:
 
 ```sh
 # ~/.config/bmsu/laptop
@@ -266,9 +298,69 @@ export BMSU_SOURCES=(
 export BMSU_RESTORE_PATH="${HOME}"
 ```
 
-This takes advantage of rsync's `/./` path to keep only the directory structure
+*This takes advantage of rsync's `/./` path to keep only the directory structure
 after this special path, this script is set up to auto-adjust that as needed.
-Using `/./` isn't limited to remote destinations.
+Using `/./` isn't limited to remote destinations.*
+
+Here's the rsync paths it will produce:
+
+```sh
+$ bmsu
+
+rsync \
+  /home/nick/./src \
+  someuser@192.168.50.213:/home/someuser
+```
+
+```sh
+$ bmsu restore
+
+rsync \
+  someuser@192.168.50.213:/home/someuser/./src \
+  /home/nick
+```
+
+#### Desktop to phone (remote)
+
+```sh
+# ~/.config/bmsu/phon
+
+export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=(
+  "--rsh='ssh -p 8022'"
+)
+
+export BMSU_DESTINATION="u0_a291@192.168.50.5:~/storage/dcim"
+
+export BMSU_SOURCES=(
+  "/data/storage/media/phone/./Camera"
+)
+
+export BMSU_RESTORE_PATH="/data/storage/media/phone"
+```
+
+*The above sets a custom SSH port and also gets around not needing to use
+trailing slashes in any of the paths. If you have multiple sources, make sure
+they all have `/./`, such as also syncing `/./Downloads`, etc..*
+
+Here's the rsync paths it will produce:
+
+```sh
+$ bmsu
+
+rsync \
+  --rsh='ssh -p 8022' \
+  /data/storage/media/phone/./Camera \
+  u0_a291@192.168.50.5:~/storage/dcim
+```
+
+```sh
+$ bmsu restore
+
+rsync \
+  --rsh='ssh -p 8022' \
+  u0_a291@192.168.50.5:~/storage/dcim/./Camera \
+  /data/storage/media/phone
+```
 
 ## 🚀 Usage
 

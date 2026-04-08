@@ -308,7 +308,12 @@ echo "n" | assert_output " /dev/shm" "${BMSU}" restore
 edit_config \
   "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:${TMP_DIR}\"|" \
   "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"${TMP_DIR}\"|"
-echo "n" | assert_output "  localhost:/./var" "${BMSU}" restore
+echo "n" | assert_output "  localhost:/dev/shm/./var" "${BMSU}" restore
+
+# The restore function has some tricky logic, during manual testing I had
+# situations where the sources were output twice because I forgot to null out
+# the array before building up a new one. This protects against that.
+echo "n" | assert_no_output "  \[1]\ /var" "${BMSU}" restore
 
 echo "n" | assert_output "  --delete-missing-args.*localhost" "${BMSU}" restore --delete
 
@@ -317,6 +322,9 @@ echo "n" | assert_output "--no-implied-dirs" "${BMSU}"
 
 edit_config "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:/\"|"
 echo "n" | assert_output "  --no-implied-dirs.*  localhost:/" "${BMSU}"
+
+edit_config "s|^export BMSU_RESTORE_PATH=.*|export BMSU_RESTORE_PATH=\"/\"|"
+echo "n" | assert_output "--no-implied-dirs" "${BMSU}" restore
 
 edit_config \
   "s|^export BMSU_DESTINATION=.*|export BMSU_DESTINATION=\"localhost:${TMP_DIR}\"|" \
