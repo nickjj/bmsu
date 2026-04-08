@@ -123,10 +123,10 @@ export DEBUG="${DEBUG-}"
 # without needing to redefine every option.
 export BMSU_DEFAULT_RSYNC_OPTS=()
 
-# Append to the default options.
+# Append items to the default list.
 export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=()
 
-# Remove items from the default options.
+# Remove items from the default list.
 export BMSU_DEFAULT_RSYNC_OPTS_SKIP=()
 
 # Where do you want the source paths to be sync'd to? This is your backup
@@ -175,9 +175,9 @@ export BMSU_EXCLUDE_PATTERNS_SKIP=()
 
 # This remains unused unless you run `bmsu restore`.
 #
-# When you're ready to restore, you'll want to set "/", since --relative is
-# always used rsync knows to create your source paths where they should be.
-# For testing you can use "/tmp" to see which files really get restored.
+# When you're ready to restore, you'll usually want to set it to "/", since
+# --relative is always used rsync knows to create your source paths where they
+# should be. For testing you can use "/tmp" to see which files really get restored.
 #
 # Tip: you can use the rsync --update flag to avoid overwriting newer files
 # that exist on your source. Be careful with --delete too!
