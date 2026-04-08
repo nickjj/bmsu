@@ -335,7 +335,7 @@ to find your username.
 # ~/.config/bmsu/phone
 
 export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=(
-  "--rsh='ssh -p 8022'"
+  "--rsh=ssh -p 8022"
 )
 
 # u0_a291 is my device's username, you'll want to replace it with yours.
