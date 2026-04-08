@@ -197,6 +197,11 @@ Here's a condensed version of a few profiles I use for different things. In all
 cases I only included the source and destination paths in the `rsync` command
 for brevity.
 
+Also for the remote examples, it's expected that the remote device has rsync
+installed and is running an SSH server. From there it's like connecting to any
+other server over SSH, you can copy your public SSH key onto it in
+`~/.ssh/authorized_keys`.
+
 #### Desktop to external drive (mount)
 
 ```sh
@@ -256,9 +261,6 @@ rsync \
 ```sh
 # ~/.config/bmsu/laptop
 
-# This assumes you've set up SSH key based authentication between the 2 machines.
-# As in generating an SSH key on your desktop and putting its public key on the
-# laptop in `~/.ssh/authorized_keys` and you're running sshd.
 export BMSU_DESTINATION="192.168.50.213:/"
 
 export BMSU_SOURCES=(
@@ -324,6 +326,11 @@ rsync \
 
 #### Desktop to phone (remote)
 
+I'm using an Android device where installing Termux allows installing rsync and
+ssh along with making your [storage files accessible through
+Termux](https://wiki.termux.com/wiki/Termux-setup-storage). You can run `whomi`
+to find your username.
+
 ```sh
 # ~/.config/bmsu/phone
 
@@ -331,6 +338,7 @@ export BMSU_DEFAULT_RSYNC_OPTS_EXTRAS=(
   "--rsh='ssh -p 8022'"
 )
 
+# u0_a291 is my device's username, you'll want to replace it with yours.
 export BMSU_DESTINATION="u0_a291@192.168.50.5:~/storage/dcim"
 
 export BMSU_SOURCES=(
