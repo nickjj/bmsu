@@ -152,6 +152,8 @@ assert_output "--relative.*--cool.*--story" "${BMSU}" config --cool --story
 
 assert_output "RSYNC_OPTIONS: '--no-relative' cannot be set" "${BMSU}" config --no-relative
 
+assert_output "RSYNC_OPTIONS: '--restore' isn't a valid rsync flag" "${BMSU}" config --restore
+
 assert_output "BMSU_DESTINATION: cannot be empty" "${BMSU}"
 
 # Never operate on the default config and use a name that won't normally exist.

@@ -7,7 +7,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Nothing yet
+### Added
+
+- Protect against setting `--restore` when you likely meant to run `restore`
 
 ## [0.5.1] - 2026-04-07
 

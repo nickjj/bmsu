@@ -989,6 +989,17 @@ EOF
 
     exit 1
   fi
+
+  if [[ " ${default_rsync_opts[*]} " == *" --restore "* ]]; then
+    cat <<EOF >&2
+${C_RED}RSYNC_OPTIONS${C_RESET}: '--restore' isn't a valid rsync flag, aborting!
+
+Did you mean to run bmsu restore (without the --)?
+EOF
+
+    exit 1
+  fi
+
 }
 
 merge_exclude_patterns() {
