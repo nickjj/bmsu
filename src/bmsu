@@ -499,6 +499,7 @@ EOF
     fi
 }
 
+# shellcheck disable=SC2120
 config_edit() {
   local profile="${1:-}"
 
@@ -592,7 +593,7 @@ config_new() {
 
   echo "${CONFIG_DEFAULT}" >"${profile_path}"
 
-  BMSU_PROFILE="${profile}" config_edit "${@}"
+  BMSU_PROFILE="${profile}" config_edit
 }
 
 config_delete() {
