@@ -98,7 +98,7 @@ inherit from this default. You can overwrite any values as desired.
 Unless you're backing up to multiple destinations or syncing files between
 multiple devices (desktop, laptop, phone, etc.) the default is all you need.
 
-All profiles are saved in: `${XDG_CONFIG_HOME}/.config/bmsu`
+All profiles are saved in: `${XDG_CONFIG_HOME}/bmsu`
 
 #### Default profile
 
